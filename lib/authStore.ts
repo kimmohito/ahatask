@@ -32,21 +32,11 @@ const useAuthStore = create<AuthState>((set, get) => ({
             localStorage.setItem("token", token);
         } catch (e) { }
 
-        try {
-            // also set a non-HttpOnly cookie so server-side middleware can read auth
-            // note: this cookie is not HttpOnly; for stronger security set cookie on server
-            document.cookie = `token=${token}; Path=/; SameSite=Lax`;
-        } catch (e) { }
-
         set({ token, isAuthenticated: true });
     },
     logout: () => {
         try {
             localStorage.removeItem("token");
-        } catch (e) { }
-
-        try {
-            document.cookie = 'token=; Path=/; Max-Age=0';
         } catch (e) { }
 
         set({ token: null, isAuthenticated: false });

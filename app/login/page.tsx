@@ -16,10 +16,9 @@ export default function Login() {
             email,
             password,
         });
-
+        // alert("Logged in!");
         setToken(res.data.token);
-        alert("Logged in!");
-        router.push("/");
+        router.push("/dashboard");
     };
 
     return (

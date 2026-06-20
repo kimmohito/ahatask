@@ -5,9 +5,12 @@ import api from "@/lib/api";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
+import useAuthStore from "@/lib/authStore";
 
 export default function Sidebar() {
     const { theme, setTheme } = useTheme();
+    const [mounted, setMounted] = useState(false);
+    const getToken = useAuthStore((s) => s.getToken);
     const [open, setOpen] = useState({ tasks: false });
     const [projects, setProjects] = useState<any[]>([]);
     const pathname = usePathname();
@@ -23,19 +26,19 @@ export default function Sidebar() {
                 setProjects([]);
             }
         };
-
+        
         load();
     }, []);
-
+    
     const goAllTasks = () => {
         setOpen((s) => ({ ...s, tasks: true }));
         router.push("/tasks");
     };
-
+    
     const slugify = (s: string) =>
         s
-            .toLowerCase()
-            .replace(/[^a-z0-9\s-]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
             .trim()
             .replace(/\s+/g, "-");
 
@@ -64,11 +67,15 @@ export default function Sidebar() {
         }
         return p.org_name || p.organization_name || getOrgSlug(p);
     };
+    
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     // Since there is only one organization, present a flat project list
     const projectList = projects || [];
     const orgSlugDefault = projectList.length ? getOrgSlug(projectList[0]) : "";
-
+    
     return (
         <aside style={{ width: 280, borderRight: "1px solid #eee", padding: 12 }}>
             <nav>
@@ -93,7 +100,7 @@ export default function Sidebar() {
                                     if (!orgSlug || orgSlug === "unknown") orgSlug = orgSlugDefault;
                                     return (
                                         <li key={p.id} style={{ marginBottom: 6 }}>
-                                            <Link href={`/tasks/${orgSlug}/${slug}`}>
+                                            <Link href={`/tasks/${orgSlug}/${slug}`} className="flex items-center">
                                                 {p.name || p.title || slug}
                                             </Link>
                                         </li>
@@ -108,11 +115,41 @@ export default function Sidebar() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>Theme</div>
                     <div>
-                        <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-                            {theme === "dark" ? "Switch to light" : "Switch to dark"}
-                        </button>
+                        {mounted ? (
+                            <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+                                {theme === "dark" ? "Switch to light" : "Switch to dark"}
+                            </button>
+                        ) : (
+                            <button aria-hidden className="opacity-0 pointer-events-none">Loading...</button>
+                        )}
                     </div>
                 </div>
+            </div>
+            <div style={{ marginTop: 16, paddingTop: 12 }}>
+                <nav>
+                    <ul style={{ paddingLeft: 0 }}>
+                        {mounted && (() => {
+                            const token = getToken();
+                            if (!token) return null;
+                            try {
+                                const parts = token.split('.');
+                                if (parts.length < 2) return null;
+                                const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+                                const isAdmin = payload?.is_admin || payload?.role === 'admin' || (Array.isArray(payload?.roles) && payload.roles.includes('admin'));
+                                if (!isAdmin) return null;
+                                return (
+                                    <li style={{ marginBottom: 8 }}>
+                                        <Link href="/admin/users" className="flex items-center">
+                                            Users
+                                        </Link>
+                                    </li>
+                                );
+                            } catch (e) {
+                                return null;
+                            }
+                        })()}
+                    </ul>
+                </nav>
             </div>
         </aside>
     );

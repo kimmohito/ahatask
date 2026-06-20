@@ -52,16 +52,15 @@ export default function TasksProjectPageAlias() {
     };
 
     useEffect(() => {
-        const timer = setTimeout(async () => {
-            if (!isAuthenticated) {
-                setTasks([]);
-                return;
-            }
-
-            await fetchTasks();
-        }, 300);
-
-        return () => clearTimeout(timer);
+        if(!isAuthenticated){
+            setTasks([]);
+            return;
+        } else {
+            const timer = setTimeout(async () => {
+                await fetchTasks();
+            }, 300);
+            return () => clearTimeout(timer);
+        }
     }, [isAuthenticated, filters, perPage, org, project]);
 
     // load statuses from API if available, else derive from tasks or fallback defaults

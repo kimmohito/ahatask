@@ -4,6 +4,8 @@ const Topbar = () => {
 
             <div>
                 asdasd
+
+                {/* <IconHouse size={16} style={{ marginRight: 8 }} /> */}
             </div>
             <div>
                 search
