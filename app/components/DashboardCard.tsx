@@ -42,8 +42,8 @@ export default function DashboardCard({ title, value, subtitle, accent, icon, ic
           ) : null}
 
           {icon ? (
-            <div className={`${iconBg ?? "bg-gray-100 dark:bg-gray-700"} rounded-full flex items-center justify-center h-full`}>
-              <div className="h-full flex items-center justify-center" style={{ padding: 6 }}>
+            <div className={`${iconBg ?? "bg-gray-100 dark:bg-gray-700"} icon-circle mr-0`}>
+              <div className="flex items-center justify-center" style={{ width: 28, height: 28 }}>
                 {iconElement}
               </div>
             </div>

@@ -1,9 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --border-color: #cccccc;
+  /* Light theme palette */
+  --background: #f6f8fb;
+  --surface: #ffffff;
+  --foreground: #0f172a;
+  --muted: #6b7280;
+  --border-color: #e6e9ee;
+
+  --accent-blue: #2563eb;
+  --accent-indigo: #6366f1;
+  --accent-red: #ef4444;
+  --accent-yellow: #f59e0b;
+  --accent-green: #10b981;
+
+  --accent-blue-100: rgba(37,99,235,0.12);
+  --accent-indigo-100: rgba(99,102,241,0.12);
+  --accent-red-100: rgba(239,68,68,0.12);
+  --accent-yellow-100: rgba(245,158,11,0.12);
+  --accent-green-100: rgba(16,185,129,0.12);
 }
 
 @theme inline {
@@ -16,9 +31,23 @@
 
 /* Support toggling via a `.dark` class (used when ThemeProvider uses attribute="class") */
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  --border-color: #333333;
+  --background: #0b1220;
+  --surface: #0f1724;
+  --foreground: #e6eef8;
+  --muted: #9aa4b2;
+  --border-color: #1f2a37;
+
+  --accent-blue: #60a5fa;
+  --accent-indigo: #8b5cf6;
+  --accent-red: #fb7185;
+  --accent-yellow: #fbbf24;
+  --accent-green: #34d399;
+
+  --accent-blue-100: rgba(96,165,250,0.12);
+  --accent-indigo-100: rgba(139,92,246,0.12);
+  --accent-red-100: rgba(251,113,133,0.12);
+  --accent-yellow-100: rgba(251,191,36,0.12);
+  --accent-green-100: rgba(52,211,153,0.12);
 }
 
 /* Optional: support `.light` class explicitly */
@@ -35,9 +64,21 @@ body {
 }
 
 .dashboard-card {
-  background: var(--background);
+  background: var(--surface);
   color: var(--foreground);
-  border: 1px solid var(--border-color, #cccccc);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 16px;
 }
+
+/* icon helper classes for consistent accents */
+.icon-circle { width: 40px; height: 40px; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; }
+.icon-blue { background: var(--accent-blue-100); color: var(--accent-blue); }
+.icon-indigo { background: var(--accent-indigo-100); color: var(--accent-indigo); }
+.icon-red { background: var(--accent-red-100); color: var(--accent-red); }
+.icon-yellow { background: var(--accent-yellow-100); color: var(--accent-yellow); }
+.icon-green { background: var(--accent-green-100); color: var(--accent-green); }
+
+/* subtle surfaces */
+.surface-muted { background: var(--surface); border: 1px solid var(--border-color); }
+

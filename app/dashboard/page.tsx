@@ -28,29 +28,27 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <DashboardCard title="Total tasks" value={totals} icon={<IconChecklist size={56} />} iconBg="bg-gray-100 text-gray-700" iconColor="text-gray-700" />
-        <DashboardCard title="Todo" value={12} icon={<IconClock size={56} />} iconBg="bg-yellow-100 text-yellow-600" iconColor="text-yellow-600" />
-        <DashboardCard title="In progress" value={8} icon={<IconPlayerPlay size={56} />} iconBg="bg-indigo-100 text-indigo-600" iconColor="text-indigo-600" />
-        <DashboardCard title="Completed" value={34} icon={<IconCheck size={56} />} iconBg="bg-green-100 text-green-600" iconColor="text-green-600" />
+        <DashboardCard title="Total tasks" value={totals} icon={<IconChecklist />} iconBg="icon-blue" iconColor="var(--accent-blue)" />
+        <DashboardCard title="Todo" value={12} icon={<IconClock />} iconBg="icon-yellow" iconColor="var(--accent-yellow)" />
+        <DashboardCard title="In progress" value={8} icon={<IconPlayerPlay />} iconBg="icon-indigo" iconColor="var(--accent-indigo)" />
+        <DashboardCard title="Completed" value={34} icon={<IconCheck />} iconBg="icon-green" iconColor="var(--accent-green)" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-          <DashboardCard title="Priority tasks" value={priorityTasks.length} icon={<IconFlag size={56} />} iconBg="bg-red-100 text-red-600" iconColor="text-red-600" />
+        <div className="surface-muted p-4 rounded-lg">
+          <DashboardCard title="Top priority tasks" value={priorityTasks.length} icon={<IconFlag />} iconBg="icon-red" iconColor="var(--accent-red)" />
           <div className="mt-3">
             <TaskList tasks={priorityTasks} maxVisible={3} />
           </div>
         </div>
-
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-          <DashboardCard title="Due tasks" value={dueTasks.length} icon={<IconCalendar size={56} />} iconBg="bg-yellow-100 text-yellow-600" iconColor="text-yellow-600" />
+        <div className="surface-muted p-4 rounded-lg">
+          <DashboardCard title="Due" value={dueTasks.length} icon={<IconCalendar />} iconBg="icon-yellow" iconColor="var(--accent-yellow)" />
           <div className="mt-3">
             <TaskList tasks={dueTasks} maxVisible={3} />
           </div>
         </div>
-
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-          <DashboardCard title="Your tasks" value={yourTasks.length} icon={<IconUserCheck size={56} />} iconBg="bg-blue-100 text-blue-600" iconColor="text-blue-600" />
+        <div className="surface-muted p-4 rounded-lg">
+          <DashboardCard title="Your Task" value={yourTasks.length} icon={<IconUserCheck />} iconBg="icon-blue" iconColor="var(--accent-blue)" />
           <div className="mt-3">
             <TaskList tasks={yourTasks} maxVisible={3} />
           </div>
@@ -58,16 +56,31 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 h-64">
-          <h3 className="text-sm text-gray-500 mb-2">Completed per day (stacked by user)</h3>
-          <div className="h-[200px]">
-            <StackedBarChart users={mockUsers} labels={["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]} width={560} height={200} />
+        <div className="lg:col-span-2 surface-muted rounded-lg p-4 h-72">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="text-sm" style={{ color: "var(--muted)" }}>Activity</div>
+              <div className="text-lg font-semibold">Completed per day</div>
+            </div>
+            <div className="flex items-center gap-3">
+              {mockUsers.map((u) => (
+                <div key={u.name} className="flex items-center gap-2 text-sm" style={{ color: u.color }}>
+                  <span style={{ width: 12, height: 8, background: u.color, display: 'inline-block', borderRadius: 3 }} />
+                  <span style={{ color: 'var(--muted)' }}>{u.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="h-[220px]">
+            <StackedBarChart users={mockUsers} labels={["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]} width={560} height={220} />
           </div>
         </div>
 
-        <div className="h-64">
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 h-full">
-            <RadialChartWithTabs totalOwned={11} totalAll={totals} />
+        <div className="h-72">
+          <div className="surface-muted rounded-lg p-4 h-full">
+            <div className="text-sm" style={{ color: "var(--muted)" }}>Overview</div>
+            <div className="text-lg font-semibold mb-2">Status distribution</div>
+            <div className="h-[200px]"><RadialChartWithTabs totalOwned={11} totalAll={totals} /></div>
           </div>
         </div>
       </div>
