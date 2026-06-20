@@ -7,9 +7,9 @@ import TaskList from "../components/TaskList";
 import { IconChecklist, IconClock, IconPlayerPlay, IconCheck, IconFlag, IconCalendar, IconUserCheck } from "@tabler/icons-react";
 
 const mockUsers = [
-  { name: "Alice", color: "#ef4444", values: [5, 3, 4, 2, 6, 3, 4] },
-  { name: "Bob", color: "#f59e0b", values: [2, 4, 1, 3, 2, 4, 1] },
-  { name: "Carol", color: "#10b981", values: [1, 2, 3, 2, 1, 1, 2] },
+  { name: "Alice", color: "var(--accent-red)", values: [5, 3, 4, 2, 6, 3, 4] },
+  { name: "Bob", color: "var(--accent-yellow)", values: [2, 4, 1, 3, 2, 4, 1] },
+  { name: "Carol", color: "var(--accent-green)", values: [1, 2, 3, 2, 1, 1, 2] },
 ];
 
 export default function DashboardPage() {

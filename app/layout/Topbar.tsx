@@ -10,6 +10,7 @@ const Topbar = () => {
     const pinned = useUiStore((s) => s.pinned);
     const setPinned = useUiStore((s) => s.setPinned);
     const setCollapsed = useUiStore((s) => s.setCollapsed);
+    const setShowLoginModal = useUiStore((s) => s.setShowLoginModal);
     const getToken = useAuthStore((s) => s.getToken);
     const logout = useAuthStore((s) => s.logout);
     const [query, setQuery] = useState("");
@@ -117,7 +118,7 @@ const Topbar = () => {
                         )}
                     </div>
                 ) : (
-                    <Link href="/login" className="px-3 py-1 rounded bg-blue-600 text-white">Login</Link>
+                    <button onClick={() => setShowLoginModal(true)} className="px-3 py-1 rounded bg-blue-600 text-white">Login</button>
                 )}
             </div>
         </div>

@@ -6,6 +6,8 @@ type UiState = {
   setCollapsed: (v: boolean) => void;
   setPinned: (v: boolean) => void;
   togglePinned: () => void;
+  showLoginModal: boolean;
+  setShowLoginModal: (v: boolean) => void;
 };
 
 const useUiStore = create<UiState>((set) => ({
@@ -14,6 +16,8 @@ const useUiStore = create<UiState>((set) => ({
   setCollapsed: (v: boolean) => set({ collapsed: v }),
   setPinned: (v: boolean) => set({ pinned: v, collapsed: !v }),
   togglePinned: () => set((s) => ({ pinned: !s.pinned, collapsed: s.pinned })),
+  showLoginModal: false,
+  setShowLoginModal: (v: boolean) => set({ showLoginModal: v }),
 }));
 
 export default useUiStore;

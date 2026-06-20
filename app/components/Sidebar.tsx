@@ -102,7 +102,7 @@ export default function Sidebar() {
                         className="fixed left-0 top-0 h-full z-50 shadow-lg bg-white dark:bg-gray-900"
                         style={{ width: 280, transform: "translateX(0)", transition: "transform 200ms ease" }}
                     >
-                        <div style={{ padding: 12 }}>
+                        <div style={{ padding: 12, maxHeight: '100vh', overflowY: 'auto', boxSizing: 'border-box' }}>
                             {/* reuse normal sidebar content */}
                             <nav>
                                 <div style={{ marginBottom: 12 }}>
@@ -157,79 +157,83 @@ export default function Sidebar() {
     }
 
     return (
-        <aside style={{ width: 280, borderRight: "1px solid #eee", padding: 12 }}>
-            <nav>
-                <div style={{ marginBottom: 12 }}>
-                    <Link href="/dashboard">Dashboard</Link>
-                </div>
-
-                <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <button onClick={goAllTasks}>Tasks</button>
-                        <button onClick={() => setOpen((s) => ({ ...s, tasks: !s.tasks }))}>{open.tasks ? "−" : "+"}</button>
+        <aside style={{ width: 280, borderRight: "1px solid #eee", padding: 12, display: 'flex', flexDirection: 'column', minHeight: '100vh', boxSizing: 'border-box' }}>
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+                <nav>
+                    <div style={{ marginBottom: 12 }}>
+                        <Link href="/dashboard">Dashboard</Link>
                     </div>
 
-                    {open.tasks && (
-                        <div style={{ marginTop: 8 }}>
-                            {projectList.length === 0 && <div>No projects</div>}
+                    <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <button onClick={goAllTasks}>Tasks</button>
+                            <button onClick={() => setOpen((s) => ({ ...s, tasks: !s.tasks }))}>{open.tasks ? "−" : "+"}</button>
+                        </div>
 
-                            <ul style={{ paddingLeft: 12 }}>
-                                {projectList.map((p: any) => {
-                                    const slug = p.slug || p.project_slug || p.name?.toLowerCase().replace(/\s+/g, "-") || String(p.id);
-                                    let orgSlug = getOrgSlug(p);
-                                    if (!orgSlug || orgSlug === "unknown") orgSlug = orgSlugDefault;
+                        {open.tasks && (
+                            <div style={{ marginTop: 8 }}>
+                                {projectList.length === 0 && <div>No projects</div>}
+
+                                <ul style={{ paddingLeft: 12 }}>
+                                    {projectList.map((p: any) => {
+                                        const slug = p.slug || p.project_slug || p.name?.toLowerCase().replace(/\s+/g, "-") || String(p.id);
+                                        let orgSlug = getOrgSlug(p);
+                                        if (!orgSlug || orgSlug === "unknown") orgSlug = orgSlugDefault;
+                                        return (
+                                            <li key={p.id} style={{ marginBottom: 6 }}>
+                                                <Link href={`/tasks/${orgSlug}/${slug}`} className="flex items-center">
+                                                    {p.name || p.title || slug}
+                                                </Link>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                </nav>
+
+                <div style={{ marginTop: 16, borderTop: "1px solid #eee", paddingTop: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>Theme</div>
+                        <div>
+                            {mounted ? (
+                                <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+                                    {theme === "dark" ? "Switch to light" : "Switch to dark"}
+                                </button>
+                            ) : (
+                                <button aria-hidden className="opacity-0 pointer-events-none">Loading...</button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{ marginTop: 16, paddingTop: 12 }}>
+                    <nav>
+                        <ul style={{ paddingLeft: 0 }}>
+                            {mounted && (() => {
+                                const token = getToken();
+                                if (!token) return null;
+                                try {
+                                    const parts = token.split('.');
+                                    if (parts.length < 2) return null;
+                                    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+                                    const isAdmin = payload?.is_admin || payload?.role === 'admin' || (Array.isArray(payload?.roles) && payload.roles.includes('admin'));
+                                    if (!isAdmin) return null;
                                     return (
-                                        <li key={p.id} style={{ marginBottom: 6 }}>
-                                            <Link href={`/tasks/${orgSlug}/${slug}`} className="flex items-center">
-                                                {p.name || p.title || slug}
+                                        <li style={{ marginBottom: 8 }}>
+                                            <Link href="/admin/users" className="flex items-center">
+                                                Users
                                             </Link>
                                         </li>
                                     );
-                                })}
-                            </ul>
-                        </div>
-                    )}
+                                } catch (e) {
+                                    return null;
+                                }
+                            })()}
+                        </ul>
+                    </nav>
                 </div>
-            </nav>
-            <div style={{ marginTop: 16, borderTop: "1px solid #eee", paddingTop: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>Theme</div>
-                    <div>
-                        {mounted ? (
-                            <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-                                {theme === "dark" ? "Switch to light" : "Switch to dark"}
-                            </button>
-                        ) : (
-                            <button aria-hidden className="opacity-0 pointer-events-none">Loading...</button>
-                        )}
-                    </div>
-                </div>
-            </div>
-            <div style={{ marginTop: 16, paddingTop: 12 }}>
-                <nav>
-                    <ul style={{ paddingLeft: 0 }}>
-                        {mounted && (() => {
-                            const token = getToken();
-                            if (!token) return null;
-                            try {
-                                const parts = token.split('.');
-                                if (parts.length < 2) return null;
-                                const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-                                const isAdmin = payload?.is_admin || payload?.role === 'admin' || (Array.isArray(payload?.roles) && payload.roles.includes('admin'));
-                                if (!isAdmin) return null;
-                                return (
-                                    <li style={{ marginBottom: 8 }}>
-                                        <Link href="/admin/users" className="flex items-center">
-                                            Users
-                                        </Link>
-                                    </li>
-                                );
-                            } catch (e) {
-                                return null;
-                            }
-                        })()}
-                    </ul>
-                </nav>
             </div>
         </aside>
     );

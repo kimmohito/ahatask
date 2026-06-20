@@ -37,10 +37,10 @@ export default function RadialChartWithTabs({ totalOwned, totalAll, onFilterChan
       <div className="flex items-center">
         <svg width={size} height={size} className="mr-4">
           <g transform={`translate(${size / 2}, ${size / 2})`}>
-            <circle r={radius} stroke="#e5e7eb" strokeWidth={stroke} fill="transparent" cx={0} cy={0} />
+            <circle r={radius} stroke="var(--accent-blue-100)" strokeWidth={stroke} fill="transparent" cx={0} cy={0} />
             <circle
               r={radius}
-              stroke="#2563eb"
+              stroke="var(--accent-blue)"
               strokeWidth={stroke}
               strokeDasharray={`${circumference} ${circumference}`}
               strokeDashoffset={offset}
@@ -48,7 +48,7 @@ export default function RadialChartWithTabs({ totalOwned, totalAll, onFilterChan
               transform={`rotate(-90)`}
               fill="transparent"
             />
-            <text x={0} y={4} textAnchor="middle" fontSize={20} fill="#111">{percent}%</text>
+            <text x={0} y={4} textAnchor="middle" fontSize={20} fill="var(--foreground)">{percent}%</text>
           </g>
         </svg>
         <div>
