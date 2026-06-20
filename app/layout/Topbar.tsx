@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import useUiStore from "@/lib/uiStore";
 import useAuthStore from "@/lib/authStore";
 import Link from "next/link";
-import { IconMenu2, IconSearch } from "@tabler/icons-react";
+import { IconMenu2, IconSearch } from "@tabler/icons-react"
 
 const Topbar = () => {
     const pinned = useUiStore((s) => s.pinned);

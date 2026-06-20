@@ -23,7 +23,7 @@ export default function DashboardCard({ title, value, subtitle, accent, icon, ic
 
   // ensure icon scales to the full height of the card's content
   const iconElement = React.isValidElement(icon)
-    ? React.cloneElement(icon as React.ReactElement, { style: { height: "100%", width: "auto", color: "inherit" } })
+    ? React.cloneElement(icon as React.ReactElement<any, any>, { style: { height: "100%", width: "auto", color: "inherit" } })
     : icon;
 
   return (
