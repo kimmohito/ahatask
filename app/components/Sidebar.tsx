@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 
 export default function Sidebar() {
+    const { theme, setTheme } = useTheme();
     const [open, setOpen] = useState({ tasks: false });
     const [projects, setProjects] = useState<any[]>([]);
     const pathname = usePathname();
     const router = useRouter();
-
     useEffect(() => {
         const load = async () => {
             try {
@@ -69,38 +70,50 @@ export default function Sidebar() {
     const orgSlugDefault = projectList.length ? getOrgSlug(projectList[0]) : "";
 
     return (
-        <nav>
-            <div style={{ marginBottom: 12 }}>
-                <Link href="/dashboard">Dashboard</Link>
-            </div>
-
-            <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <button onClick={goAllTasks}>Tasks</button>
-                    <button onClick={() => setOpen((s) => ({ ...s, tasks: !s.tasks }))}>{open.tasks ? "−" : "+"}</button>
+        <aside style={{ width: 280, borderRight: "1px solid #eee", padding: 12 }}>
+            <nav>
+                <div style={{ marginBottom: 12 }}>
+                    <Link href="/dashboard">Dashboard</Link>
                 </div>
 
-                {open.tasks && (
-                    <div style={{ marginTop: 8 }}>
-                        {projectList.length === 0 && <div>No projects</div>}
-
-                        <ul style={{ paddingLeft: 12 }}>
-                            {projectList.map((p: any) => {
-                                const slug = p.slug || p.project_slug || p.name?.toLowerCase().replace(/\s+/g, "-") || String(p.id);
-                                let orgSlug = getOrgSlug(p);
-                                if (!orgSlug || orgSlug === "unknown") orgSlug = orgSlugDefault;
-                                return (
-                                    <li key={p.id} style={{ marginBottom: 6 }}>
-                                        <Link href={`/tasks/${orgSlug}/${slug}`}>
-                                            {p.name || p.title || slug}
-                                        </Link>
-                                    </li>
-                                );
-                            })}
-                        </ul>
+                <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <button onClick={goAllTasks}>Tasks</button>
+                        <button onClick={() => setOpen((s) => ({ ...s, tasks: !s.tasks }))}>{open.tasks ? "−" : "+"}</button>
                     </div>
-                )}
+
+                    {open.tasks && (
+                        <div style={{ marginTop: 8 }}>
+                            {projectList.length === 0 && <div>No projects</div>}
+
+                            <ul style={{ paddingLeft: 12 }}>
+                                {projectList.map((p: any) => {
+                                    const slug = p.slug || p.project_slug || p.name?.toLowerCase().replace(/\s+/g, "-") || String(p.id);
+                                    let orgSlug = getOrgSlug(p);
+                                    if (!orgSlug || orgSlug === "unknown") orgSlug = orgSlugDefault;
+                                    return (
+                                        <li key={p.id} style={{ marginBottom: 6 }}>
+                                            <Link href={`/tasks/${orgSlug}/${slug}`}>
+                                                {p.name || p.title || slug}
+                                            </Link>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </div>
+                    )}
+                </div>
+            </nav>
+            <div style={{ marginTop: 16, borderTop: "1px solid #eee", paddingTop: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>Theme</div>
+                    <div>
+                        <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+                            {theme === "dark" ? "Switch to light" : "Switch to dark"}
+                        </button>
+                    </div>
+                </div>
             </div>
-        </nav>
+        </aside>
     );
 }
