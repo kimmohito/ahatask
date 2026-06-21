@@ -10,6 +10,7 @@ import useUiStore from "@/lib/uiStore";
 
 export default function Sidebar() {
     const { theme, setTheme } = useTheme();
+    const isAuthenticated = useAuthStore((s) => !!s.isAuthenticated);
     const [mounted, setMounted] = useState(false);
     const getToken = useAuthStore((s) => s.getToken);
     const [open, setOpen] = useState({ tasks: false });
@@ -21,20 +22,24 @@ export default function Sidebar() {
     const setPinned = useUiStore((s) => s.setPinned);
     const setCollapsed = useUiStore((s) => s.setCollapsed);
     const [peek, setPeek] = useState(false);
+
     useEffect(() => {
-        const load = async () => {
-            try {
-                const res = await api.get("/api/projects");
-                // accept res.data or res.data.data
-                const list = res?.data?.data ?? res?.data ?? [];
-                setProjects(list);
-            } catch (e) {
-                setProjects([]);
-            }
-        };
-        
-        load();
-    }, []);
+        if(!isAuthenticated){
+            setProjects([]);
+        } else {
+            const load = async () => {
+                try {
+                    const res = await api.get("/api/projects");
+                    // accept res.data or res.data.data
+                    const list = res?.data?.data ?? res?.data ?? [];
+                    setProjects(list);
+                } catch (e) {
+                    console.log("Failed to load projects", e);
+                }
+            };
+            load();
+        }
+    }, [isAuthenticated]);
     
     const goAllTasks = () => {
         setOpen((s) => ({ ...s, tasks: true }));

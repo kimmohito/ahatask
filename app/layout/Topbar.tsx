@@ -34,6 +34,7 @@ const Topbar = () => {
     ];
 
     const ref = useRef<HTMLDivElement | null>(null);
+    const setShowCreateTaskModal = useUiStore((s) => s.setShowCreateTaskModal);
 
     useEffect(() => {
         const onDoc = (e: MouseEvent) => {
@@ -85,6 +86,7 @@ const Topbar = () => {
                             placeholder="Search tasks, slug, assignee, reporter"
                             className="bg-transparent flex-1 ml-2 outline-none text-sm"
                         />
+                        <button onClick={() => setShowCreateTaskModal(true)} aria-label="Create task" className="ml-2 px-2 py-1 rounded bg-indigo-600 text-white text-sm">+ Task</button>
                     </div>
 
                     {searchOpen && (

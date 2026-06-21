@@ -4,6 +4,7 @@ import "./globals.css";
 import Providers from "./providers";
 import AppShell from "./components/AppShell";
 import LoginModal from "./components/LoginModal";
+import CreateTaskModal from "./components/CreateTaskModal";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,7 @@ export default function RootLayout({
             <main style={{ flex: 1, padding: 16 }}>{children}</main>
           </AppShell>
           <LoginModal />
+          <CreateTaskModal />
         </Providers>
       </body>
     </html>
