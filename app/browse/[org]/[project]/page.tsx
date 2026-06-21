@@ -99,9 +99,29 @@ export default function TasksProjectPageAlias() {
     const toTaskKey = (task: Task): string => String(task.slug || task.task_slug || task.id);
 
     const orderedTasks = useMemo(() => {
-        if (!localSequence || localSequence.length === 0) return tasks;
+        let pinnedIds: string[] = [];
+        if (typeof window !== "undefined") {
+            try {
+                const raw = localStorage.getItem("task-pins");
+                const parsed = raw ? JSON.parse(raw) : [];
+                pinnedIds = Array.isArray(parsed) ? parsed.map((v) => String(v)) : [];
+            } catch {
+                pinnedIds = [];
+            }
+        }
 
-        const map = new Map(tasks.map((task) => [toTaskKey(task), task]));
+        const base = pinnedIds.length
+            ? [...tasks].sort((a, b) => {
+                  const aPinned = pinnedIds.includes(toTaskKey(a));
+                  const bPinned = pinnedIds.includes(toTaskKey(b));
+                  if (aPinned === bPinned) return 0;
+                  return aPinned ? -1 : 1;
+              })
+            : tasks;
+
+        if (!localSequence || localSequence.length === 0) return base;
+
+        const map = new Map(base.map((task) => [toTaskKey(task), task]));
         const ordered: Task[] = [];
 
         localSequence.forEach((key) => {
@@ -645,11 +665,42 @@ export default function TasksProjectPageAlias() {
 
                 <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_280px] gap-4 items-start">
                     <div className="space-y-4 min-w-0">
-                        {loading && (
+                        {loading && view === "table" ? (
+                            <div className="rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-gray-50 dark:bg-gray-800/70">
+                                        <tr>
+                                            <th className="text-left px-4 py-3">Title</th>
+                                            <th className="text-left px-4 py-3">Status</th>
+                                            <th className="text-left px-4 py-3">Priority</th>
+                                            <th className="text-left px-4 py-3">Assignee</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {Array.from({ length: Math.max(1, Math.min(perPage || 10, 50)) }).map((_, i) => (
+                                            <tr key={i} className="border-t border-gray-200 dark:border-gray-800">
+                                                <td className="px-4 py-3">
+                                                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse" />
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 animate-pulse" />
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3 animate-pulse" />
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 animate-pulse" />
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : loading ? (
                             <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 text-center text-sm text-gray-500 dark:text-gray-400">
                                 Loading tasks...
                             </div>
-                        )}
+                        ) : null}
 
                         {!loading && hasNoData && (
                             <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-10 flex flex-col items-center text-center">
