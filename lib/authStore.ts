@@ -33,6 +33,9 @@ const useAuthStore = create<AuthState>((set, get) => ({
         try {
             localStorage.setItem("token", token);
         } catch (e) { }
+        try {
+            document.cookie = `token=${encodeURIComponent(token)};path=/;SameSite=Lax;max-age=86400`;
+        } catch (e) { }
         set({ token, isAuthenticated: true });
     },
     username: "",
@@ -45,6 +48,9 @@ const useAuthStore = create<AuthState>((set, get) => ({
     logout: () => {
         try {
             localStorage.removeItem("token");
+        } catch (e) { }
+        try {
+            document.cookie = "token=;path=/;SameSite=Lax;max-age=0";
         } catch (e) { }
 
         set({ token: null, isAuthenticated: false });

@@ -53,7 +53,7 @@ const Topbar = () => {
     });
 
     return (
-        <div className="sticky top-0 z-50 w-full h-16 flex items-center justify-between px-4 border-b border-gray-300 bg-[color:var(--background)]">
+        <div className="sticky top-0 z-50 w-full h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-800 bg-[color:var(--background)]">
             <div className="flex items-center gap-3">
                 <button
                     aria-label="Toggle sidebar"

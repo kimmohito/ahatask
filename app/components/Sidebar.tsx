@@ -116,9 +116,12 @@ export default function Sidebar() {
                     boxSizing: "border-box",
                     background: "transparent",
                 }}
-                className="border-r border-gray-200 dark:border-gray-800"
             >
-                <aside style={{ width: "100%", padding: 12, display: "flex", flexDirection: "column", minHeight: "calc(100vh - 96px)", boxSizing: 'border-box' }}>
+                <aside style={{ width: "100%", padding: 12, display: "flex", flexDirection: "column", minHeight: "calc(100vh - 96px)", boxSizing: 'border-box', borderRight: "1px solid #ddd", background: "white"   }}
+                
+                
+                    className="border-r border-gray-200 dark:border-gray-800 bg-red-400"
+                >
                     <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
                         <nav>
                             <div style={{ marginBottom: 12 }}>
