@@ -1,58 +1,21 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useState } from "react";
 import useUiStore from "@/lib/uiStore";
 import useAuthStore from "@/lib/authStore";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IconMenu2, IconSearch } from "@tabler/icons-react"
+import { IconMenu2 } from "@tabler/icons-react";
+import GlobalTaskSearch from "@/app/components/GlobalTaskSearch";
 
 const Topbar = () => {
     const router = useRouter();
-    const { isAuthenticated, username } = useAuthStore();
-    const pinned = useUiStore((s) => s.pinned);
-    const setPinned = useUiStore((s) => s.setPinned);
+    const { isAuthenticated, username, token } = useAuthStore();
     const collapsed = useUiStore((s) => s.collapsed);
     const setCollapsed = useUiStore((s) => s.setCollapsed);
     const setShowLoginModal = useUiStore((s) => s.setShowLoginModal);
-    const getToken = useAuthStore((s) => s.getToken);
     const logout = useAuthStore((s) => s.logout);
-    const [query, setQuery] = useState("");
-    const [searchOpen, setSearchOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
-    const [recent] = useState(() => [
-        "fix login issue",
-        "dashboard styling",
-        "add user management",
-        "API timeout bug",
-        "improve search"
-    ]);
-    const demoData = [
-        { slug: "task-1", name: "Fix login issue", assignee: "Alice", reporter: "Bob" },
-        { slug: "dashboard-styles", name: "Dashboard styling", assignee: "Carol", reporter: "Alice" },
-        { slug: "user-mgmt", name: "Add user management", assignee: "Bob", reporter: "Carol" },
-        { slug: "api-timeout", name: "API timeout bug", assignee: "Eve", reporter: "Mallory" },
-        { slug: "search-improve", name: "Improve search", assignee: "Alice", reporter: "Bob" },
-        { slug: "other-1", name: "Other task 1", assignee: "Zed", reporter: "Yana" },
-        { slug: "other-2", name: "Other task 2", assignee: "Zed", reporter: "Yana" },
-    ];
-
-    const ref = useRef<HTMLDivElement | null>(null);
     const setShowCreateTaskModal = useUiStore((s) => s.setShowCreateTaskModal);
-
-    useEffect(() => {
-        const onDoc = (e: MouseEvent) => {
-            if (ref.current && !ref.current.contains(e.target as Node)) setSearchOpen(false);
-        };
-        document.addEventListener("click", onDoc);
-        return () => document.removeEventListener("click", onDoc);
-    }, []);
-
-    const results = demoData.filter(d => {
-        if (!query) return true;
-        const q = query.toLowerCase();
-        return d.name.toLowerCase().includes(q) || d.slug.toLowerCase().includes(q) || d.assignee.toLowerCase().includes(q) || d.reporter.toLowerCase().includes(q);
-    });
 
     return (
         <div className="sticky top-0 z-50 w-full h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-800 bg-background">
@@ -67,37 +30,11 @@ const Topbar = () => {
                 <div className="font-semibold">AHA Task Manager</div>
             </div>
 
-            <div className="flex-1 max-w-2xl mx-4" ref={ref}>
-                <div className="relative">
-                    <div className="flex items-center bg-gray-50 dark:bg-gray-800 rounded px-3 py-2">
-                        <IconSearch size={16} className="text-gray-400" />
-                        <input
-                            value={query}
-                            onChange={(e) => { setQuery(e.target.value); setSearchOpen(true); }}
-                            onFocus={() => setSearchOpen(true)}
-                            placeholder="Search tasks, slug, assignee, reporter"
-                            className="bg-transparent flex-1 ml-2 outline-none text-sm"
-                        />
-                        <button onClick={() => setShowCreateTaskModal(true)} aria-label="Create task" className="ml-2 px-2 py-1 rounded bg-indigo-600 text-white text-sm">+ Task</button>
-                    </div>
-
-                    {searchOpen && (
-                        <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow max-h-56 overflow-auto z-50">
-                            <div className="p-2 text-xs text-gray-500">Recent</div>
-                            {recent.slice(0,5).map((r, i) => (
-                                <div key={i} className="px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer text-sm">{r}</div>
-                            ))}
-                            <div className="p-2 text-xs text-gray-500">Results</div>
-                            {results.map((r, i) => (
-                                <Link key={r.slug} href={`/browse/${r.slug}`} className="block px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700">
-                                    <div className="text-sm font-medium">{r.name}</div>
-                                    <div className="text-xs text-gray-500">{r.assignee} • {r.reporter}</div>
-                                </Link>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
+            <GlobalTaskSearch
+                isAuthenticated={isAuthenticated}
+                userKey={username || token || "user"}
+                onCreateTask={() => setShowCreateTaskModal(true)}
+            />
 
             <div>
                 {isAuthenticated ? (

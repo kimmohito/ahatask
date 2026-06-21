@@ -3,11 +3,21 @@
 import React, { useEffect, useState } from "react";
 import api from "@/lib/api";
 import useAuthStore from "@/lib/authStore";
-import { useRouter } from "next/navigation";
 
 type User = { id: number; name?: string; email?: string; username?: string };
 
-export default function CreateTaskForm({ onStored, hideSubmit, onRegisterSubmit }: { onStored?: (task: any) => void, hideSubmit?: boolean, onRegisterSubmit?: (fn: () => Promise<void>) => void }) {
+type TaskFormMode = "create" | "edit";
+
+type TaskFormProps = {
+  mode?: TaskFormMode;
+  task?: any;
+  onStored?: (task: any) => void;
+  onUpdated?: (task: any, changes?: Array<{ field: string; before: any; after: any }>) => void;
+  hideSubmit?: boolean;
+  onRegisterSubmit?: (fn: () => Promise<void>) => void;
+};
+
+export default function CreateTaskForm({ mode = "create", task, onStored, onUpdated, hideSubmit, onRegisterSubmit }: TaskFormProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [assignee, setAssignee] = useState<string | number | null>(null);
@@ -16,8 +26,6 @@ export default function CreateTaskForm({ onStored, hideSubmit, onRegisterSubmit 
   const [priority, setPriority] = useState("normal");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
-
   const getToken = useAuthStore((s) => s.getToken);
   const token = typeof window !== "undefined" ? getToken() : null;
   let reporter = "";
@@ -34,6 +42,31 @@ export default function CreateTaskForm({ onStored, hideSubmit, onRegisterSubmit 
   } catch (e) {}
 
   useEffect(() => {
+    if (mode === "edit" && task) {
+      setTitle(task.title ?? "");
+      setDescription(task.description ?? "");
+      setAssignee(task.assignee_id ?? task.assignee?.id ?? task.assignee ?? null);
+      setStatus(task.status ?? "open");
+      setPriority(task.priority ?? "normal");
+      return;
+    }
+
+    if (mode === "create") {
+      try {
+        const raw = localStorage.getItem('createTaskDraft');
+        if (raw) {
+          const d = JSON.parse(raw);
+          if (d.title) setTitle(d.title);
+          if (d.description) setDescription(d.description);
+          if (d.assignee) setAssignee(d.assignee);
+          if (d.status) setStatus(d.status);
+          if (d.priority) setPriority(d.priority);
+        }
+      } catch (e) {}
+    }
+  }, [mode, task]);
+
+  useEffect(() => {
     const loadUsers = async () => {
       try {
         const res = await api.get('/api/users');
@@ -44,19 +77,8 @@ export default function CreateTaskForm({ onStored, hideSubmit, onRegisterSubmit 
     };
     loadUsers();
 
-    // load draft from localStorage
-    try {
-      const raw = localStorage.getItem('createTaskDraft');
-      if (raw) {
-        const d = JSON.parse(raw);
-        if (d.title) setTitle(d.title);
-        if (d.description) setDescription(d.description);
-        if (d.assignee) setAssignee(d.assignee);
-        if (d.status) setStatus(d.status);
-        if (d.priority) setPriority(d.priority);
-      }
-    } catch (e) {}
-  }, []);
+    if (mode !== "create") return;
+  }, [mode]);
 
   const assignToMe = () => {
     setAssignee(reporterId ?? reporter ?? "");
@@ -71,7 +93,6 @@ export default function CreateTaskForm({ onStored, hideSubmit, onRegisterSubmit 
   }, [title, description, assignee, status, priority]);
 
   const submit = async () => {
-    // "Store" action: persist to DB but keep modal open and return saved task
     if (!title.trim()) {
       setError('Title is required');
       return;
@@ -80,15 +101,47 @@ export default function CreateTaskForm({ onStored, hideSubmit, onRegisterSubmit 
     setLoading(true);
     try {
       const payload: any = { title, description, status, priority };
-      if (assignee) payload.assignee = assignee;
+      if (assignee) {
+        payload.assignee = assignee;
+        payload.assignee_id = assignee;
+      }
       if (reporterId) payload.reporter_id = reporterId;
-      const res = await api.post('/api/tasks', payload);
-      const task = res?.data?.data ?? res?.data ?? null;
-      // do not navigate; notify parent modal to show saved task view
-      if (onStored) onStored(task);
-      // keep draft in localStorage until user clears or navigates
+
+      const previous = task || {};
+      const changedFields = ["title", "description", "status", "priority", "assignee_id"].reduce<Array<{ field: string; before: any; after: any }>>((acc, field) => {
+        const nextValue = field === "assignee_id" ? payload.assignee_id ?? null : payload[field];
+        const prevValue = field === "assignee_id" ? previous?.assignee_id ?? previous?.assignee?.id ?? previous?.assignee ?? null : previous?.[field];
+        if (String(prevValue ?? "") !== String(nextValue ?? "")) {
+          acc.push({ field, before: prevValue, after: nextValue });
+        }
+        return acc;
+      }, []);
+
+      let res;
+      if (mode === "edit") {
+        const taskId = previous?.id ?? previous?.slug ?? previous?.task_slug;
+        if (!taskId) throw new Error('Task id is required for editing');
+        try {
+          res = await api.put(`/api/tasks/${taskId}`, payload);
+        } catch {
+          res = await api.patch(`/api/tasks/${taskId}`, payload);
+        }
+      } else {
+        res = await api.post('/api/tasks', payload);
+      }
+
+      const savedTask = res?.data?.data ?? res?.data ?? null;
+      if (mode === "edit") {
+        if (onUpdated) onUpdated(savedTask, changedFields);
+      } else if (onStored) {
+        onStored(savedTask);
+      }
+
+      if (mode === "create") {
+        // keep draft in localStorage until user clears or navigates
+      }
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || 'Failed to create task');
+      setError(e?.response?.data?.message || e?.message || (mode === "edit" ? 'Failed to update task' : 'Failed to create task'));
     } finally {
       setLoading(false);
     }
@@ -107,15 +160,15 @@ export default function CreateTaskForm({ onStored, hideSubmit, onRegisterSubmit 
     <div>
       {error && <div className="text-sm text-red-600 mb-2">{error}</div>}
 
-      <label className="text-sm text-[color:var(--muted)]">Title</label>
+      <label className="text-sm text-(--muted)">Title</label>
       <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full px-3 py-2 border rounded mt-1 mb-3" />
 
-      <label className="text-sm text-[color:var(--muted)]">Description</label>
+      <label className="text-sm text-(--muted)">Description</label>
       <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="w-full px-3 py-2 border rounded mt-1 mb-3" />
 
       <div className="flex items-baseline-last gap-2 mb-3">
         <div className="flex-1">
-          <label className="text-sm text-[color:var(--muted)]">Assignee</label>
+          <label className="text-sm text-(--muted)">Assignee</label>
           <select value={String(assignee ?? "")} onChange={(e) => setAssignee(e.target.value || null)} className="w-full px-2 py-2 border rounded mt-1">
             <option value="">-- unassigned --</option>
             {users.map(u => (
@@ -130,7 +183,7 @@ export default function CreateTaskForm({ onStored, hideSubmit, onRegisterSubmit 
 
       <div className="flex gap-2 mb-3">
         <div className="flex-1">
-          <label className="text-sm text-[color:var(--muted)]">Status</label>
+          <label className="text-sm text-(--muted)">Status</label>
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full px-2 py-2 border rounded mt-1">
             <option value="open">Open</option>
             <option value="in_progress">In Progress</option>
@@ -139,7 +192,7 @@ export default function CreateTaskForm({ onStored, hideSubmit, onRegisterSubmit 
           </select>
         </div>
         <div className="flex-1">
-          <label className="text-sm text-[color:var(--muted)]">Priority</label>
+          <label className="text-sm text-(--muted)">Priority</label>
           <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full px-2 py-2 border rounded mt-1">
             <option value="low">Low</option>
             <option value="normal">Normal</option>
@@ -152,7 +205,7 @@ export default function CreateTaskForm({ onStored, hideSubmit, onRegisterSubmit 
       {!hideSubmit && (
         <div className="flex justify-end">
           <button onClick={submit} disabled={loading} className="px-4 py-2 bg-indigo-600 text-white rounded">
-            {loading ? 'Creating...' : 'Create Task'}
+            {loading ? (mode === "edit" ? 'Saving...' : 'Creating...') : (mode === "edit" ? 'Save Changes' : 'Create Task')}
           </button>
         </div>
       )}

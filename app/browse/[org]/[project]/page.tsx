@@ -14,7 +14,10 @@ import {
     IconArrowsSort,
     IconSortAscending,
     IconSortDescending,
+    IconInbox,
+    IconPlus,
 } from "@tabler/icons-react";
+import useUiStore from "@/lib/uiStore";
 
 type Task = {
     id: string | number;
@@ -85,6 +88,8 @@ export default function TasksProjectPageAlias() {
     const [assignees, setAssignees] = useState<UserOption[]>([]);
     const [usersLoaded, setUsersLoaded] = useState(false);
     const [orgName, setOrgName] = useState("");
+    const [accessDenied, setAccessDenied] = useState(false);
+    const setShowCreateTaskModal = useUiStore((s) => s.setShowCreateTaskModal);
 
     useEffect(() => {
         // initialise auth from localStorage on mount
@@ -158,10 +163,14 @@ export default function TasksProjectPageAlias() {
             if (parts.length < 2) return { userId: null as string | null, isAdmin: false };
             const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
             const userId = payload?.id ?? payload?.user_id ?? payload?.sub ?? null;
-            const isAdmin =
-                !!payload?.is_admin ||
-                payload?.role === "admin" ||
-                (Array.isArray(payload?.roles) && payload.roles.includes("admin"));
+            const role = String(payload?.role || "").toLowerCase();
+            const roles = Array.isArray(payload?.roles)
+                ? payload.roles
+                      .map((r: any) => (typeof r === "string" ? r : r?.name || r?.slug || r?.role || ""))
+                      .map((r: string) => r.toLowerCase())
+                : [];
+            const adminRoles = new Set(["admin", "super admin", "super_admin", "superadmin"]);
+            const isAdmin = !!payload?.is_admin || adminRoles.has(role) || roles.some((r: string) => adminRoles.has(r));
             return { userId: userId !== null && userId !== undefined ? String(userId) : null, isAdmin };
         } catch {
             return { userId: null as string | null, isAdmin: false };
@@ -215,6 +224,8 @@ export default function TasksProjectPageAlias() {
                 },
             });
 
+            setAccessDenied(false);
+
             setTasks(res?.data?.data ?? []);
             const meta = res?.data?.meta || res?.data?.pagination || {};
             const totalPagesFromMeta = Number(meta?.last_page || meta?.total_pages || 1);
@@ -227,6 +238,13 @@ export default function TasksProjectPageAlias() {
             });
             setLocalSequence(null);
             setLocalBoardUpdates({});
+        } catch (err: any) {
+            const status = err?.response?.status;
+            if (status === 403) {
+                setAccessDenied(true);
+                setTasks([]);
+                setPagination({ currentPage: 1, totalPages: 1, totalItems: 0 });
+            }
         } finally {
             setLoading(false);
         }
@@ -505,9 +523,10 @@ export default function TasksProjectPageAlias() {
     }, [org, project]);
 
     if (!org || !project) return <div>Please select a project URL: /{`{org}`}/{`{project}`}/tasks</div>;
-    if (loading) return <div>Loading tasks...</div>;
 
-    if (usersLoaded && isAuthenticated && !currentAuth.isAdmin && !currentUserInProject) {
+    const hasNoData = !loading && orderedTasks.length === 0;
+
+    if (accessDenied) {
         return (
             <AppShell>
                 <div className="w-full min-w-0 px-3 md:px-5 py-3">
@@ -626,7 +645,31 @@ export default function TasksProjectPageAlias() {
 
                 <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_280px] gap-4 items-start">
                     <div className="space-y-4 min-w-0">
-                        {view === "board" && (
+                        {loading && (
+                            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                Loading tasks...
+                            </div>
+                        )}
+
+                        {!loading && hasNoData && (
+                            <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-10 flex flex-col items-center text-center">
+                                <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4 text-gray-500 dark:text-gray-400">
+                                    <IconInbox size={26} />
+                                </div>
+                                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Looks like nothing there yet</h3>
+                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">No tasks found for this project with the current filters.</p>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCreateTaskModal(true)}
+                                    className="mt-4 inline-flex items-center gap-2 h-9 px-4 rounded-md bg-indigo-600 text-white text-sm hover:bg-indigo-500"
+                                >
+                                    <IconPlus size={16} />
+                                    Add task
+                                </button>
+                            </div>
+                        )}
+
+                        {!loading && !hasNoData && view === "board" && (
                             <div className="space-y-3">
                                 <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.max(boardColumns.length, 1)}, minmax(220px, 1fr))` }}>
                                     {boardColumns.length === 0 && <div>No columns available</div>}
@@ -673,7 +716,7 @@ export default function TasksProjectPageAlias() {
                             </div>
                         )}
 
-                        {view === "table" && (
+                        {!loading && !hasNoData && view === "table" && (
                             <div className="rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900">
                                 <table className="w-full text-sm">
                                     <thead className="bg-gray-50 dark:bg-gray-800/70">
@@ -729,7 +772,7 @@ export default function TasksProjectPageAlias() {
                             </div>
                         )}
 
-                        {view === "list" && (
+                        {!loading && !hasNoData && view === "list" && (
                             <ul className="space-y-2">
                                 {orderedTasks.map((task) => {
                                     const taskSlug = task.slug || task.task_slug || task.id;

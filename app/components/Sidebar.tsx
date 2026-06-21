@@ -125,6 +125,18 @@ export default function Sidebar() {
         return uid !== null && uid !== undefined ? String(uid) : null;
     };
 
+    const isPayloadAdmin = (payload: any): boolean => {
+        if (!payload) return false;
+        const role = String(payload?.role || "").toLowerCase();
+        const roles = Array.isArray(payload?.roles)
+            ? payload.roles
+                  .map((r: any) => (typeof r === "string" ? r : r?.name || r?.slug || r?.role || ""))
+                  .map((r: string) => r.toLowerCase())
+            : [];
+        const adminRoles = new Set(["admin", "super admin", "super_admin", "superadmin"]);
+        return !!payload?.is_admin || adminRoles.has(role) || roles.some((r: string) => adminRoles.has(r));
+    };
+
     const projectHasUser = (project: any, userId: string | null): boolean => {
         if (!project || !userId) return false;
         const uid = String(userId);
@@ -165,10 +177,7 @@ export default function Sidebar() {
                 try {
                     const payload = getAuthPayload();
                     const userId = getCurrentUserId();
-                    const admin =
-                        !!payload?.is_admin ||
-                        payload?.role === "admin" ||
-                        (Array.isArray(payload?.roles) && payload.roles.includes("admin"));
+                    const admin = isPayloadAdmin(payload);
 
                     const res = await api.get("/api/projects", {
                         params: admin
@@ -235,7 +244,7 @@ export default function Sidebar() {
             const parts = token.split(".");
             if (parts.length < 2) return false;
             const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
-            return payload?.is_admin || payload?.role === "admin" || (Array.isArray(payload?.roles) && payload.roles.includes("admin"));
+            return isPayloadAdmin(payload);
         } catch { return false; }
     })();
 
