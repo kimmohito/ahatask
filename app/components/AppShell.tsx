@@ -21,13 +21,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Topbar />
-      <main style={{ flex: 1, padding: 16 }}>
-        <div className="flex flex-1">
+      <main className="flex flex-1">
           <Sidebar />
-          {children}
-        </div>
-        <LoginModal />
+          <div className="flex max-w-7xl mx-auto">
+            {children}
+          </div>
       </main>
+      <LoginModal />
       <CreateTaskModal />
     </>
   );

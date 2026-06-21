@@ -7,13 +7,96 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "@/lib/theme";
 import useAuthStore from "@/lib/authStore";
 import useUiStore from "@/lib/uiStore";
+import {
+    IconLayoutDashboard,
+    IconFolder,
+    IconFolderOpen,
+    IconChevronDown,
+    IconChevronRight,
+    IconUsers,
+    IconSun,
+    IconMoon,
+} from "@tabler/icons-react";
+
+// ─── shared nav item ──────────────────────────────────────────────────────────
+function NavItem({
+    href,
+    icon,
+    label,
+    active,
+    onClick,
+    children,
+    open,
+    onToggle,
+}: {
+    href?: string;
+    icon: React.ReactNode;
+    label: string;
+    active?: boolean;
+    onClick?: () => void;
+    children?: React.ReactNode;
+    open?: boolean;
+    onToggle?: () => void;
+}) {
+    const base =
+        "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 group";
+    const activeClass =
+        "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400";
+    const idleClass =
+        "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100";
+
+    const inner = (
+        <span className={`${base} ${active ? activeClass : idleClass}`}>
+            <span className={`shrink-0 ${active ? "text-indigo-500 dark:text-indigo-400" : "text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300"}`}>
+                {icon}
+            </span>
+            <span className="flex-1 text-left truncate">{label}</span>
+            {onToggle && (
+                <span className="shrink-0 text-gray-400 transition-transform duration-150" style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)" }}>
+                    <IconChevronDown size={15} />
+                </span>
+            )}
+        </span>
+    );
+
+    if (onToggle) {
+        return (
+            <div>
+                <button onClick={onToggle} className="w-full text-left">{inner}</button>
+                {open && <div className="mt-1 ml-3 pl-3 border-l border-gray-200 dark:border-gray-700 space-y-0.5">{children}</div>}
+            </div>
+        );
+    }
+
+    if (href) {
+        return <Link href={href} onClick={onClick}>{inner}</Link>;
+    }
+
+    return <button onClick={onClick} className="w-full text-left">{inner}</button>;
+}
+
+function SubItem({ href, label, active }: { href: string; label: string; active?: boolean }) {
+    return (
+        <Link
+            href={href}
+            className={`block px-3 py-1.5 rounded-md text-sm transition-colors duration-150 truncate ${
+                active
+                    ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 font-medium"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800"
+            }`}
+        >
+            {label}
+        </Link>
+    );
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function Sidebar() {
     const { theme, setTheme } = useTheme();
     const isAuthenticated = useAuthStore((s) => !!s.isAuthenticated);
     const [mounted, setMounted] = useState(false);
     const getToken = useAuthStore((s) => s.getToken);
-    const [open, setOpen] = useState({ tasks: false });
+    const [open, setOpen] = useState({ projects: false });
     const [projects, setProjects] = useState<any[]>([]);
     const pathname = usePathname();
     const router = useRouter();
@@ -25,13 +108,12 @@ export default function Sidebar() {
     const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
-        if(!isAuthenticated){
+        if (!isAuthenticated) {
             setProjects([]);
         } else {
             const load = async () => {
                 try {
                     const res = await api.get("/api/projects");
-                    // accept res.data or res.data.data
                     const list = res?.data?.data ?? res?.data ?? [];
                     setProjects(list);
                 } catch (e) {
@@ -41,319 +123,155 @@ export default function Sidebar() {
             load();
         }
     }, [isAuthenticated]);
-    
-    const goAllTasks = () => {
-        setOpen((s) => ({ ...s, tasks: true }));
-        if(pathname?.startsWith("/browse")) return;
-        router.push("/browse");
-    };
-    
-    const slugify = (s: string) =>
-        s
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-            .trim()
-            .replace(/\s+/g, "-");
 
-    const getOrgSlug = (p: any) => {
-        // possible shapes: p.organization: { slug }, p.organization: 'org-slug', p.org_slug, p.organization_slug
+    useEffect(() => { setMounted(true); }, []);
+
+    useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth < 768);
+        onResize();
+        window.addEventListener("resize", onResize);
+        return () => window.removeEventListener("resize", onResize);
+    }, []);
+
+    const slugify = (s: string) =>
+        s.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-");
+
+    const getOrgSlug = (p: any): string => {
         if (!p) return "unknown";
         if (p.organization) {
             if (typeof p.organization === "string") return p.organization;
             if (p.organization.slug) return p.organization.slug;
             if (p.organization.name) return slugify(p.organization.name);
         }
-
-        if (p.org_slug) return p.org_slug;
-        if (p.organization_slug) return p.organization_slug;
-        if (p.org) return p.org;
-
-        return "unknown";
+        return p.org_slug || p.organization_slug || p.org || "unknown";
     };
 
-    const getOrgLabel = (p: any) => {
-        if (!p) return "unknown";
-        if (p.organization) {
-            if (typeof p.organization === "string") return p.organization;
-            if (p.organization.name) return p.organization.name;
-            if (p.organization.slug) return p.organization.slug;
-        }
-        return p.org_name || p.organization_name || getOrgSlug(p);
-    };
-    
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    useEffect(() => {
-        const onResize = () => {
-            if (typeof window !== "undefined") setIsMobile(window.innerWidth < 768);
-        };
-        onResize();
-        window.addEventListener("resize", onResize);
-        return () => window.removeEventListener("resize", onResize);
-    }, []);
-
-    // Since there is only one organization, present a flat project list
     const projectList = projects || [];
     const orgSlugDefault = projectList.length ? getOrgSlug(projectList[0]) : "";
-    
-    // mobile: render a full-width slide-in sidebar under the topbar
+
+    const isAdmin = mounted && (() => {
+        const token = getToken();
+        if (!token) return false;
+        try {
+            const parts = token.split(".");
+            if (parts.length < 2) return false;
+            const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+            return payload?.is_admin || payload?.role === "admin" || (Array.isArray(payload?.roles) && payload.roles.includes("admin"));
+        } catch { return false; }
+    })();
+
+    // ── shared nav content ──────────────────────────────────────────────────
+    const navContent = (
+        <div className="flex flex-col justify-start h-full">
+            <nav className="pace-y-0.5 p-2">
+                <NavItem
+                    href="/dashboard"
+                    icon={<IconLayoutDashboard size={18} />}
+                    label="Dashboard"
+                    active={pathname === "/dashboard"}
+                />
+
+                <NavItem
+                    icon={open.projects ? <IconFolderOpen size={18} /> : <IconFolder size={18} />}
+                    label="Projects"
+                    active={pathname?.startsWith("/browse")}
+                    open={open.projects}
+                    onToggle={() => setOpen((s) => ({ ...s, projects: !s.projects }))}
+                >
+                    {projectList.length === 0 ? (
+                        <p className="px-3 py-1.5 text-xs text-gray-400 dark:text-gray-500">No projects</p>
+                    ) : (
+                        projectList.map((p: any) => {
+                            const slug = p.slug || p.project_slug || p.name?.toLowerCase().replace(/\s+/g, "-") || String(p.id);
+                            let orgSlug = getOrgSlug(p);
+                            if (!orgSlug || orgSlug === "unknown") orgSlug = orgSlugDefault;
+                            const href = `/browse/${orgSlug}/${slug}`;
+                            return (
+                                <SubItem
+                                    key={p.id}
+                                    href={href}
+                                    label={p.name || p.title || slug}
+                                    active={pathname === href || pathname?.startsWith(href + "/")}
+                                />
+                            );
+                        })
+                    )}
+                </NavItem>
+
+                {isAdmin && (
+                    <NavItem
+                        href="/admin/users"
+                        icon={<IconUsers size={18} />}
+                        label="Users"
+                        active={pathname?.startsWith("/admin/users")}
+                    />
+                )}
+            </nav>
+
+            <div className="p-2 border-t border-gray-200 dark:border-gray-700">
+                {mounted ? (
+                    <NavItem
+                        icon={theme === "dark" ? <IconSun size={18} /> : <IconMoon size={18} />}
+                        label={theme === "dark" ? "Light mode" : "Dark mode"}
+                        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                    />
+                ) : (
+                    <div className="h-10" />
+                )}
+            </div>
+        </div>
+    );
+
+    // ── mobile: full-width slide-in under topbar ─────────────────────────────
     if (isMobile) {
-        const visible = !collapsed;
         return (
             <div
+                className="fixed left-0 z-50 w-screen overflow-hidden bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700"
                 style={{
-                    position: "fixed",
                     top: 64,
-                    left: 0,
-                    width: "100vw",
                     height: "calc(100vh - 64px)",
-                    zIndex: 50,
                     transition: "transform 200ms ease",
-                    transform: visible ? "translateX(0)" : "translateX(-100%)",
-                    overflow: "hidden",
-                    boxSizing: "border-box",
-                    background: "transparent",
+                    transform: collapsed ? "translateX(-100%)" : "translateX(0)",
                 }}
             >
-                <aside style={{ width: "100%", padding: 12, display: "flex", flexDirection: "column", minHeight: "calc(100vh - 96px)", boxSizing: 'border-box', borderRight: "1px solid #ddd", background: "white"   }}
-                
-                
-                    className="border-r border-gray-200 dark:border-gray-800 bg-red-400"
-                >
-                    <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-                        <nav>
-                            <div style={{ marginBottom: 12 }}>
-                                <Link href="/dashboard">Dashboard</Link>
-                            </div>
-
-                            <div>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                    <button onClick={goAllTasks}>Tasks</button>
-                                    <button onClick={() => setOpen((s) => ({ ...s, tasks: !s.tasks }))}>{open.tasks ? "−" : "+"}</button>
-                                </div>
-
-                                {open.tasks && (
-                                    <div style={{ marginTop: 8 }}>
-                                        {projectList.length === 0 && <div>No projects</div>}
-
-                                        <ul style={{ paddingLeft: 12 }}>
-                                            {projectList.map((p: any) => {
-                                                const slug = p.slug || p.project_slug || p.name?.toLowerCase().replace(/\s+/g, "-") || String(p.id);
-                                                let orgSlug = getOrgSlug(p);
-                                                if (!orgSlug || orgSlug === "unknown") orgSlug = orgSlugDefault;
-                                                return (
-                                                    <li key={p.id} style={{ marginBottom: 6 }}>
-                                                        <Link href={`/browse/${orgSlug}/${slug}`} className="flex items-center">
-                                                            {p.name || p.title || slug}
-                                                        </Link>
-                                                    </li>
-                                                );
-                                            })}
-                                        </ul>
-                                    </div>
-                                )}
-                            </div>
-                        </nav>
-
-                        <div style={{ marginTop: 16, borderTop: "1px solid #eee", paddingTop: 12 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <div>Theme</div>
-                                <div>
-                                    {mounted ? (
-                                        <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? "Switch to light" : "Switch to dark"}</button>
-                                    ) : (
-                                        <button aria-hidden className="opacity-0 pointer-events-none">Loading...</button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style={{ marginTop: 16, paddingTop: 12 }}>
-                            <nav>
-                                <ul style={{ paddingLeft: 0 }}>
-                                    {mounted && (() => {
-                                        const token = getToken();
-                                        if (!token) return null;
-                                        try {
-                                            const parts = token.split('.');
-                                            if (parts.length < 2) return null;
-                                            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-                                            const isAdmin = payload?.is_admin || payload?.role === 'admin' || (Array.isArray(payload?.roles) && payload.roles.includes('admin'));
-                                            if (!isAdmin) return null;
-                                            return (
-                                                <li style={{ marginBottom: 8 }}>
-                                                    <Link href="/admin/users" className="flex items-center">
-                                                        Users
-                                                    </Link>
-                                                </li>
-                                            );
-                                        } catch (e) {
-                                            return null;
-                                        }
-                                    })()}
-                                </ul>
-                            </nav>
-                        </div>
-                    </div>
-                </aside>
+                {navContent}
             </div>
         );
     }
 
-    // when collapsed & not pinned: show a narrow edge that can be hovered to peek
-    if (collapsed && !pinned) {
+    // ── desktop collapsed: peek on hover ────────────────────────────────────
+    if (collapsed) {
         return (
             <>
                 <div
                     onMouseEnter={() => setPeek(true)}
                     onMouseLeave={() => setPeek(false)}
-                    className="fixed left-0 top-0 h-full z-40 flex items-start"
-                    style={{ width: 44, background: "transparent" }}
+                    className="fixed left-0 top-0 h-full z-40 flex items-start pt-16"
+                    style={{ width: 44 }}
                 >
-                    <div className="ml-2 mt-4 p-2 rounded bg-transparent">☰</div>
+                    <div className="ml-2 p-1.5 rounded card-dashboard text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                        <IconFolder size={18} />
+                    </div>
                 </div>
 
-                    {peek ? (
+                {peek && (
                     <div
                         onMouseEnter={() => setPeek(true)}
                         onMouseLeave={() => setPeek(false)}
-                        className="fixed left-0 top-0 h-full z-50 shadow-lg bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700"
-                        style={{ width: 280, transform: "translateX(12px)", transition: "transform 200ms ease" }}
+                        className="fixed top-0 h-full z-50 shadow-xl bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700"
+                        style={{ width: 260, left: 0, transform: "translateX(12px)", transition: "transform 200ms ease" }}
                     >
-                        <div style={{ padding: 12, maxHeight: '100vh', overflowY: 'auto', boxSizing: 'border-box' }}>
-                            {/* reuse normal sidebar content */}
-                            <nav>
-                                <div style={{ marginBottom: 12 }}>
-                                    <Link href="/dashboard">Dashboard</Link>
-                                </div>
-
-                                <div>
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                        <button onClick={() => { setPinned(true); setCollapsed(false); }}>Tasks</button>
-                                        <button onClick={() => setOpen((s) => ({ ...s, tasks: !s.tasks }))}>{open.tasks ? "−" : "+"}</button>
-                                    </div>
-
-                                    {open.tasks && (
-                                        <div style={{ marginTop: 8 }}>
-                                            {projects.length === 0 && <div>No projects</div>}
-
-                                            <ul style={{ paddingLeft: 12 }}>
-                                                {projects.map((p: any) => {
-                                                    const slug = p.slug || p.project_slug || p.name?.toLowerCase().replace(/\s+/g, "-") || String(p.id);
-                                                    let orgSlug = getOrgSlug(p);
-                                                    if (!orgSlug || orgSlug === "unknown") orgSlug = orgSlugDefault;
-                                                    return (
-                                                        <li key={p.id} style={{ marginBottom: 6 }}>
-                                                            <Link href={`/browse/${orgSlug}/${slug}`} className="flex items-center">
-                                                                {p.name || p.title || slug}
-                                                            </Link>
-                                                        </li>
-                                                    );
-                                                })}
-                                            </ul>
-                                        </div>
-                                    )}
-                                </div>
-                            </nav>
-                            <div style={{ marginTop: 16, borderTop: "1px solid #eee", paddingTop: 12 }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                    <div>Theme</div>
-                                    <div>
-                                        {mounted ? (
-                                            <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? "Switch to light" : "Switch to dark"}</button>
-                                        ) : (
-                                            <button aria-hidden className="opacity-0 pointer-events-none">Loading...</button>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        {navContent}
                     </div>
-                ) : null}
+                )}
             </>
         );
     }
 
+    // ── desktop pinned/open ──────────────────────────────────────────────────
     return (
-        <aside style={{ width: 280, padding: 12, display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 96px)', boxSizing: 'border-box' }}>
-            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-                <nav>
-                    <div style={{ marginBottom: 12 }}>
-                        <Link href="/dashboard">Dashboard</Link>
-                    </div>
-
-                    <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <button onClick={goAllTasks}>Projects</button>
-                            <button onClick={() => setOpen((s) => ({ ...s, tasks: !s.tasks }))}>{open.tasks ? "−" : "+"}</button>
-                        </div>
-
-                        {open.tasks && (
-                            <div style={{ marginTop: 8 }}>
-                                {projectList.length === 0 && <div>No projects</div>}
-                                <ul style={{ paddingLeft: 12 }}>
-                                    {projectList.map((p: any) => {
-                                        const slug = p.slug || p.project_slug || p.name?.toLowerCase().replace(/\s+/g, "-") || String(p.id);
-                                        let orgSlug = getOrgSlug(p);
-                                        if (!orgSlug || orgSlug === "unknown") orgSlug = orgSlugDefault;
-                                        return (
-                                            <li key={p.id} style={{ marginBottom: 6 }}>
-                                                <Link href={`/browse/${orgSlug}/${slug}`} className="flex items-center">
-                                                    {p.name || p.title || slug}
-                                                </Link>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            </div>
-                        )}
-                    </div>
-                </nav>
-
-                <div style={{ marginTop: 16, borderTop: "1px solid #eee", paddingTop: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div>Theme</div>
-                        <div>
-                            {mounted ? (
-                                <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-                                    {theme === "dark" ? "Switch to light" : "Switch to dark"}
-                                </button>
-                            ) : (
-                                <button aria-hidden className="opacity-0 pointer-events-none">Loading...</button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                <div style={{ marginTop: 16, paddingTop: 12 }}>
-                    <nav>
-                        <ul style={{ paddingLeft: 0 }}>
-                            {mounted && (() => {
-                                const token = getToken();
-                                if (!token) return null;
-                                try {
-                                    const parts = token.split('.');
-                                    if (parts.length < 2) return null;
-                                    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-                                    const isAdmin = payload?.is_admin || payload?.role === 'admin' || (Array.isArray(payload?.roles) && payload.roles.includes('admin'));
-                                    if (!isAdmin) return null;
-                                    return (
-                                        <li style={{ marginBottom: 8 }}>
-                                            <Link href="/admin/users" className="flex items-center">
-                                                Users
-                                            </Link>
-                                        </li>
-                                    );
-                                } catch (e) {
-                                    return null;
-                                }
-                            })()}
-                        </ul>
-                    </nav>
-                </div>
-            </div>
+        <aside className="card-dashboard border-r border-gray-200 dark:border-gray-700" style={{ width: 260, minHeight: "calc(100vh - 64px)", display: "flex", flexDirection: "column" }}>
+            {navContent}
         </aside>
     );
 }
