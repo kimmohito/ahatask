@@ -1,0 +1,73 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🔍 Checkout Code 
+        uses: actions/checkout@v3
+
+      - name: 🟢 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+
+      - name: 🏎️ Run ESLint
+        run: |
+          npm run lint
+          npm run typecheck
+
+      - name: 🏗️ Build Next.js
+        run: |
+          npm run build
+
+      - name: 🎭 Install Playwright Browsers
+        run: |
+          npx playwright install --with-deps
+
+      - name: 🧪 Run E2E Tests
+        run: |
+          npm run test:e2e
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🔍 Checkout Code
+        uses: actions/checkout@v3
+
+      - name: 🚚 Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.HOSTNAME }} >> ~/.ssh/known_hosts
+
+      - name: 🚀 Build Frontend
+        uses: nick-fields/retry@v3
+        with:
+          max_attempts: 3
+          timeout_minutes: 5
+          command: |
+            ssh deployer@${{ secrets.HOSTNAME }} "
+              export NVM_DIR=\"\$HOME/.nvm\" &&
+              [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\" &&
+              cd /var/www/ahatask/ahatask &&
+              git reset --hard &&                                         # optional: ensure clean working dir
+              git pull origin main &&                                     # pull latest code
+              npm ci &&
+              npm run build &&
+              pm2 reload ecosystem.config.js
+            "
