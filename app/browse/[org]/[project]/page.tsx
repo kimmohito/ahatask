@@ -28,8 +28,6 @@ type Task = {
     assignee?: { id?: string | number; name?: string } | string;
 };
 
-type BoardGroupBy = "status" | "priority" | "assignee";
-
 type UserOption = {
     id: string | number;
     name: string;
@@ -59,7 +57,8 @@ export default function TasksProjectPageAlias() {
     const [perPage, setPerPage] = useState(10);
     const [sortBy, setSortBy] = useState<"title" | "status" | "priority">("title");
     const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-    const [boardGroupBy, setBoardGroupBy] = useState<BoardGroupBy>("status");
+    const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
+    const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [pagination, setPagination] = useState<PaginationMeta>({
         currentPage: 1,
@@ -129,22 +128,9 @@ export default function TasksProjectPageAlias() {
     }, [boardTasks]);
 
     const boardColumns = useMemo<BoardColumn[]>(() => {
-        if (boardGroupBy === "status") {
-            const cols = statuses.length > 0 ? statuses : ["todo", "grooming", "in progress", "done"];
-            return cols.map((s) => ({ key: s, label: s }));
-        }
-
-        if (boardGroupBy === "priority") {
-            const vals = priorities.length > 0
-                ? priorities
-                : Array.from(new Set(boardTasks.map((t) => (t.priority || "").trim()).filter(Boolean)));
-            const cols = vals.length > 0 ? vals : ["low", "normal", "high", "urgent"];
-            return cols.map((p) => ({ key: p, label: p }));
-        }
-
-        const cols = assignees.map((u) => ({ key: String(u.id), label: u.name }));
-        return [{ key: "unassigned", label: "Unassigned" }, ...cols];
-    }, [boardGroupBy, boardTasks, statuses, priorities, assignees]);
+        const cols = statuses.length > 0 ? statuses : ["todo", "grooming", "in progress", "done"];
+        return cols.map((s) => ({ key: s, label: s }));
+    }, [statuses]);
 
     const fetchTasks = async () => {
         if (!org || !project) return;
@@ -166,6 +152,10 @@ export default function TasksProjectPageAlias() {
                     scope: "project",
                     search_scope: "project",
                     include_all_projects: false,
+                    priority_in: selectedPriorities.length ? selectedPriorities.join(",") : undefined,
+                    assignee_in: selectedAssignees.length ? selectedAssignees.join(",") : undefined,
+                    priorities: selectedPriorities.length ? selectedPriorities : undefined,
+                    assignees: selectedAssignees.length ? selectedAssignees : undefined,
                     sort_by: sortBy,
                     sort_dir: sortDir,
                     order_by: sortBy,
@@ -201,7 +191,7 @@ export default function TasksProjectPageAlias() {
             }, 300);
             return () => clearTimeout(timer);
         }
-    }, [isAuthenticated, filters, perPage, currentPage, projectSearchQuery, sortBy, sortDir, org, project]);
+    }, [isAuthenticated, filters, perPage, currentPage, projectSearchQuery, selectedPriorities, selectedAssignees, sortBy, sortDir, org, project]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -212,7 +202,7 @@ export default function TasksProjectPageAlias() {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [perPage, projectSearchQuery, filters.status, filters.priority, filters.assignee_id, filters.from, filters.to, org, project]);
+    }, [perPage, projectSearchQuery, selectedPriorities, selectedAssignees, filters.status, filters.priority, filters.assignee_id, filters.from, filters.to, org, project]);
 
     // load statuses from API if available, else derive from tasks or fallback defaults
     useEffect(() => {
@@ -307,18 +297,6 @@ export default function TasksProjectPageAlias() {
         setLocalSequence(next);
     };
 
-    const getTaskGroupValue = (task: Task): string => {
-        if (boardGroupBy === "status") return task.status || "unassigned";
-        if (boardGroupBy === "priority") return task.priority || "unassigned";
-        if (task.assignee_id !== undefined && task.assignee_id !== null && String(task.assignee_id).length > 0) {
-            return String(task.assignee_id);
-        }
-        if (typeof task.assignee === "object" && task.assignee?.id !== undefined && task.assignee?.id !== null) {
-            return String(task.assignee.id);
-        }
-        return "unassigned";
-    };
-
     const persistTaskUpdate = async (task: Task, patch: Record<string, any>) => {
         const taskId = task.id;
         const taskSlug = task.slug || task.task_slug;
@@ -356,25 +334,8 @@ export default function TasksProjectPageAlias() {
         let localPatch: Partial<Task> = {};
         let apiPatch: Record<string, any> = {};
 
-        if (boardGroupBy === "status") {
-            localPatch = { status: targetColumn };
-            apiPatch = { status: targetColumn };
-        } else if (boardGroupBy === "priority") {
-            localPatch = { priority: targetColumn };
-            apiPatch = { priority: targetColumn };
-        } else {
-            if (targetColumn === "unassigned") {
-                localPatch = { assignee_id: "", assignee_name: "Unassigned" };
-                apiPatch = { assignee: null, assignee_id: null };
-            } else {
-                const targetUser = assignees.find((u) => String(u.id) === String(targetColumn));
-                localPatch = {
-                    assignee_id: targetColumn,
-                    assignee_name: targetUser?.name || "User",
-                };
-                apiPatch = { assignee: targetColumn, assignee_id: targetColumn };
-            }
-        }
+        localPatch = { status: targetColumn };
+        apiPatch = { status: targetColumn };
 
         setLocalBoardUpdates((prev) => ({
             ...prev,
@@ -478,7 +439,64 @@ export default function TasksProjectPageAlias() {
 
                 <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 md:p-4">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <details className="relative">
+                                <summary className="list-none cursor-pointer h-9 px-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm flex items-center">
+                                    Priority {selectedPriorities.length > 0 ? `(${selectedPriorities.length})` : "(All)"}
+                                </summary>
+                                <div className="absolute z-20 mt-1 w-56 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-2 shadow-lg">
+                                    <div className="max-h-56 overflow-auto space-y-1">
+                                        {priorities.map((p) => (
+                                            <label key={p} className="flex items-center gap-2 text-sm">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedPriorities.includes(p)}
+                                                    onChange={(e) => {
+                                                        setSelectedPriorities((prev) =>
+                                                            e.target.checked ? [...prev, p] : prev.filter((v) => v !== p)
+                                                        );
+                                                    }}
+                                                />
+                                                <span className="capitalize">{p}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                    <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-700">
+                                        <button className="text-xs text-indigo-600" onClick={() => setSelectedPriorities([])} type="button">Clear</button>
+                                    </div>
+                                </div>
+                            </details>
+
+                            <details className="relative">
+                                <summary className="list-none cursor-pointer h-9 px-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm flex items-center">
+                                    Assignee {selectedAssignees.length > 0 ? `(${selectedAssignees.length})` : "(All)"}
+                                </summary>
+                                <div className="absolute z-20 mt-1 w-64 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-2 shadow-lg">
+                                    <div className="max-h-56 overflow-auto space-y-1">
+                                        {assignees.map((u) => {
+                                            const id = String(u.id);
+                                            return (
+                                                <label key={id} className="flex items-center gap-2 text-sm">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedAssignees.includes(id)}
+                                                        onChange={(e) => {
+                                                            setSelectedAssignees((prev) =>
+                                                                e.target.checked ? [...prev, id] : prev.filter((v) => v !== id)
+                                                            );
+                                                        }}
+                                                    />
+                                                    <span>{u.name}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-700">
+                                        <button className="text-xs text-indigo-600" onClick={() => setSelectedAssignees([])} type="button">Clear</button>
+                                    </div>
+                                </div>
+                            </details>
+
                             {localSequence && (
                                 <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-1 text-xs">
                                     Manual sequence active
@@ -502,29 +520,6 @@ export default function TasksProjectPageAlias() {
                                     <option value="list">List</option>
                                 </select>
                             </div>
-
-                            {view === "board" && (
-                                <div className="inline-flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
-                                    <button
-                                        onClick={() => setBoardGroupBy("status")}
-                                        className={`h-9 px-3 text-sm ${boardGroupBy === "status" ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300"}`}
-                                    >
-                                        Status
-                                    </button>
-                                    <button
-                                        onClick={() => setBoardGroupBy("priority")}
-                                        className={`h-9 px-3 text-sm border-l border-gray-300 dark:border-gray-700 ${boardGroupBy === "priority" ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300"}`}
-                                    >
-                                        Priority
-                                    </button>
-                                    <button
-                                        onClick={() => setBoardGroupBy("assignee")}
-                                        className={`h-9 px-3 text-sm border-l border-gray-300 dark:border-gray-700 ${boardGroupBy === "assignee" ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300"}`}
-                                    >
-                                        Assignee
-                                    </button>
-                                </div>
-                            )}
 
                             <div className="relative flex-1 md:flex-none md:w-80">
                                 <IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -555,7 +550,7 @@ export default function TasksProjectPageAlias() {
                             >
                                 <h3 className="font-semibold capitalize text-sm text-gray-700 dark:text-gray-300">{column.label}</h3>
                                 <div className="mt-2 space-y-2">
-                                    {(boardTasks.filter((t) => getTaskGroupValue(t) === column.key) || []).map((task) => {
+                                    {(boardTasks.filter((t) => (t.status || "unassigned") === column.key) || []).map((task) => {
                                         const taskSlug = task.slug || task.task_slug || task.id;
                                         const taskId = toTaskKey(task);
                                         return (
@@ -572,7 +567,7 @@ export default function TasksProjectPageAlias() {
                                                     {task.title}
                                                 </Link>
                                                 <div className="text-xs text-gray-500 mt-1">
-                                                    {boardGroupBy === "status" ? (task.priority || "-") : (task.status || "-")}
+                                                    {task.priority || "-"}
                                                 </div>
                                             </div>
                                         );
