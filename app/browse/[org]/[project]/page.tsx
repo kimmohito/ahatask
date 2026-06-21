@@ -31,6 +31,7 @@ type Task = {
 type UserOption = {
     id: string | number;
     name: string;
+    role?: string;
 };
 
 type BoardColumn = {
@@ -78,9 +79,11 @@ export default function TasksProjectPageAlias() {
     });
 
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+    const getToken = useAuthStore((s) => s.getToken);
     const [statuses, setStatuses] = useState<string[]>([]);
     const [priorities, setPriorities] = useState<string[]>([]);
     const [assignees, setAssignees] = useState<UserOption[]>([]);
+    const [usersLoaded, setUsersLoaded] = useState(false);
     const [orgName, setOrgName] = useState("");
 
     useEffect(() => {
@@ -109,10 +112,30 @@ export default function TasksProjectPageAlias() {
     }, [tasks, localSequence]);
 
     const getAssigneeLabel = (task: Task): string => {
-        if (task.assignee_name) return task.assignee_name;
-        if (typeof task.assignee === "string" && task.assignee) return task.assignee;
-        if (typeof task.assignee === "object" && task.assignee?.name) return task.assignee.name;
-        return "unassigned";
+        const roleLike = new Set(["super admin", "admin", "member user", "member"]);
+
+        // Prefer resolved user list by assignee_id to ensure we show actual user name.
+        if (task.assignee_id !== undefined && task.assignee_id !== null) {
+            const found = assignees.find((u) => String(u.id) === String(task.assignee_id));
+            if (found?.name) return found.name;
+        }
+
+        if (typeof task.assignee === "object" && task.assignee?.name) {
+            const candidate = String(task.assignee.name).trim();
+            if (candidate && !roleLike.has(candidate.toLowerCase())) return candidate;
+        }
+
+        if (typeof task.assignee === "string" && task.assignee) {
+            const candidate = String(task.assignee).trim();
+            if (candidate && !roleLike.has(candidate.toLowerCase())) return candidate;
+        }
+
+        if (task.assignee_name) {
+            const candidate = String(task.assignee_name).trim();
+            if (candidate && !roleLike.has(candidate.toLowerCase())) return candidate;
+        }
+
+        return "Unassigned";
     };
 
     const boardTasks = useMemo(() => {
@@ -126,6 +149,34 @@ export default function TasksProjectPageAlias() {
     const taskByKey = useMemo(() => {
         return new Map(boardTasks.map((task) => [toTaskKey(task), task]));
     }, [boardTasks]);
+
+    const currentAuth = useMemo(() => {
+        const token = getToken();
+        if (!token) return { userId: null as string | null, isAdmin: false };
+        try {
+            const parts = token.split(".");
+            if (parts.length < 2) return { userId: null as string | null, isAdmin: false };
+            const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+            const userId = payload?.id ?? payload?.user_id ?? payload?.sub ?? null;
+            const isAdmin =
+                !!payload?.is_admin ||
+                payload?.role === "admin" ||
+                (Array.isArray(payload?.roles) && payload.roles.includes("admin"));
+            return { userId: userId !== null && userId !== undefined ? String(userId) : null, isAdmin };
+        } catch {
+            return { userId: null as string | null, isAdmin: false };
+        }
+    }, [getToken, isAuthenticated]);
+
+    const currentUserInProject = useMemo(() => {
+        if (currentAuth.isAdmin) return true;
+        if (!currentAuth.userId) return false;
+        return assignees.some((u) => String(u.id) === currentAuth.userId);
+    }, [assignees, currentAuth]);
+
+    const assignableUserIds = useMemo(() => {
+        return new Set(assignees.map((u) => String(u.id)));
+    }, [assignees]);
 
     const boardColumns = useMemo<BoardColumn[]>(() => {
         const cols = statuses.length > 0 ? statuses : ["todo", "grooming", "in progress", "done"];
@@ -210,10 +261,11 @@ export default function TasksProjectPageAlias() {
             let list: string[] = [];
             try {
                 const res = await api.get("/api/statuses", { params: { org, project } });
-                if (res?.data) {
-                    if (Array.isArray(res.data)) {
-                        list = res.data.map((s: any) => (typeof s === "string" ? s : s.name));
-                    }
+                const src = res?.data?.data ?? res?.data ?? [];
+                if (Array.isArray(src)) {
+                    list = src
+                        .map((s: any) => (typeof s === "string" ? s : s?.name || s?.value || s?.key))
+                        .filter(Boolean);
                 }
             } catch (e) {
                 // ignore
@@ -261,22 +313,41 @@ export default function TasksProjectPageAlias() {
 
     useEffect(() => {
         const loadUsers = async () => {
+            setUsersLoaded(false);
             try {
-                const res = await api.get("/api/users", { params: { org, project } });
+                const res = await api.get("/api/users", {
+                    params: {
+                        org,
+                        project,
+                        scope: "project",
+                        search_scope: "project",
+                        only_assignable: true,
+                    },
+                });
                 const src = res?.data?.data ?? res?.data ?? [];
                 if (!Array.isArray(src)) {
                     setAssignees([]);
                     return;
                 }
+                const roleLike = new Set(["super admin", "admin", "member user", "member"]);
                 const list = src
                     .map((u: any) => ({
                         id: u?.id,
                         name: u?.name || u?.username || u?.email || String(u?.id || "User"),
+                        role:
+                            u?.role ||
+                            (Array.isArray(u?.roles) ? u.roles[0] : undefined) ||
+                            u?.membership_role ||
+                            u?.pivot?.role ||
+                            "member",
                     }))
-                    .filter((u: UserOption) => u.id !== undefined && u.id !== null);
+                    .filter((u: UserOption) => u.id !== undefined && u.id !== null)
+                    .filter((u: UserOption) => !roleLike.has(String(u.name || "").trim().toLowerCase()));
                 setAssignees(list);
             } catch (e) {
                 setAssignees([]);
+            } finally {
+                setUsersLoaded(true);
             }
         };
 
@@ -298,6 +369,13 @@ export default function TasksProjectPageAlias() {
     };
 
     const persistTaskUpdate = async (task: Task, patch: Record<string, any>) => {
+        const targetAssignee = patch?.assignee_id ?? patch?.assignee;
+        if (targetAssignee !== undefined && targetAssignee !== null && String(targetAssignee) !== "") {
+            if (!assignableUserIds.has(String(targetAssignee))) {
+                throw new Error("Selected assignee is not assignable in this project");
+            }
+        }
+
         const taskId = task.id;
         const taskSlug = task.slug || task.task_slug;
         const candidates: Array<() => Promise<any>> = [];
@@ -429,6 +507,18 @@ export default function TasksProjectPageAlias() {
     if (!org || !project) return <div>Please select a project URL: /{`{org}`}/{`{project}`}/tasks</div>;
     if (loading) return <div>Loading tasks...</div>;
 
+    if (usersLoaded && isAuthenticated && !currentAuth.isAdmin && !currentUserInProject) {
+        return (
+            <AppShell>
+                <div className="w-full min-w-0 px-3 md:px-5 py-3">
+                    <div className="rounded-xl border border-red-200 bg-red-50 text-red-700 px-4 py-3">
+                        You are not a member of this project. Only project members can view this project.
+                    </div>
+                </div>
+            </AppShell>
+        );
+    }
+
     return (
         <AppShell>
             <div className="space-y-4 w-full min-w-0 px-3 md:px-5 py-3">
@@ -534,165 +624,198 @@ export default function TasksProjectPageAlias() {
                     </div>
                 </div>
 
-                {view === "board" && (
-                    <div className="space-y-3">
-                        <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.max(boardColumns.length, 1)}, minmax(220px, 1fr))` }}>
-                            {boardColumns.length === 0 && <div>No columns available</div>}
-                            {boardColumns.map((column) => (
-                            <div
-                                key={column.key}
-                                onDragOver={(e) => e.preventDefault()}
-                                onDrop={async () => {
-                                    if (!draggingId) return;
-                                    await moveTaskAcrossBoardGroup(draggingId, column.key);
-                                }}
-                                className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-900/50 p-3 min-h-40"
-                            >
-                                <h3 className="font-semibold capitalize text-sm text-gray-700 dark:text-gray-300">{column.label}</h3>
-                                <div className="mt-2 space-y-2">
-                                    {(boardTasks.filter((t) => (t.status || "unassigned") === column.key) || []).map((task) => {
-                                        const taskSlug = task.slug || task.task_slug || task.id;
-                                        const taskId = toTaskKey(task);
-                                        return (
-                                            <div
-                                                key={task.id}
-                                                draggable
-                                                onDragStart={() => setDraggingId(taskId)}
-                                                onDragOver={(e) => e.preventDefault()}
-                                                onDrop={() => moveItemTemporarily(taskId)}
-                                                onDragEnd={() => setDraggingId(null)}
-                                                className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 shadow-sm cursor-grab"
-                                            >
-                                                <Link href={`/task/${taskSlug}`} className="font-semibold text-sm text-gray-900 dark:text-gray-100 hover:underline">
-                                                    {task.title}
-                                                </Link>
-                                                <div className="text-xs text-gray-500 mt-1">
-                                                    {task.priority || "-"}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_280px] gap-4 items-start">
+                    <div className="space-y-4 min-w-0">
+                        {view === "board" && (
+                            <div className="space-y-3">
+                                <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.max(boardColumns.length, 1)}, minmax(220px, 1fr))` }}>
+                                    {boardColumns.length === 0 && <div>No columns available</div>}
+                                    {boardColumns.map((column) => (
+                                    <div
+                                        key={column.key}
+                                        onDragOver={(e) => e.preventDefault()}
+                                        onDrop={async () => {
+                                            if (!draggingId) return;
+                                            await moveTaskAcrossBoardGroup(draggingId, column.key);
+                                        }}
+                                        className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-900/50 p-3 min-h-40"
+                                    >
+                                        <h3 className="font-semibold capitalize text-sm text-gray-700 dark:text-gray-300">{column.label}</h3>
+                                        <div className="mt-2 space-y-2">
+                                            {(boardTasks.filter((t) => (t.status || "unassigned") === column.key) || []).map((task) => {
+                                                const taskSlug = task.slug || task.task_slug || task.id;
+                                                const taskId = toTaskKey(task);
+                                                return (
+                                                    <div
+                                                        key={task.id}
+                                                        draggable
+                                                        onDragStart={() => setDraggingId(taskId)}
+                                                        onDragOver={(e) => e.preventDefault()}
+                                                        onDrop={() => moveItemTemporarily(taskId)}
+                                                        onDragEnd={() => setDraggingId(null)}
+                                                        className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 shadow-sm cursor-grab"
+                                                    >
+                                                        <Link href={`/task/${taskSlug}`} className="font-semibold text-sm text-gray-900 dark:text-gray-100 hover:underline">
+                                                            {task.title}
+                                                        </Link>
+                                                        <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                                                            <span className="capitalize">{task.priority || "-"}</span>
+                                                            <span>•</span>
+                                                            <span>{getAssigneeLabel(task)}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
                                 </div>
                             </div>
-                        ))}
-                        </div>
-                    </div>
-                )}
+                        )}
 
-                {view === "table" && (
-                    <div className="rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900">
-                        <table className="w-full text-sm">
-                            <thead className="bg-gray-50 dark:bg-gray-800/70">
-                                <tr>
-                                    <th className="text-left px-4 py-3">
-                                        <button onClick={() => toggleSort("title")} className="inline-flex items-center gap-1.5 font-semibold text-gray-700 dark:text-gray-300">
-                                            Title {sortIcon("title")}
-                                        </button>
-                                    </th>
-                                    <th className="text-left px-4 py-3">
-                                        <button onClick={() => toggleSort("status")} className="inline-flex items-center gap-1.5 font-semibold text-gray-700 dark:text-gray-300">
-                                            Status {sortIcon("status")}
-                                        </button>
-                                    </th>
-                                    <th className="text-left px-4 py-3">
-                                        <button onClick={() => toggleSort("priority")} className="inline-flex items-center gap-1.5 font-semibold text-gray-700 dark:text-gray-300">
-                                            Priority {sortIcon("priority")}
-                                        </button>
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                        {view === "table" && (
+                            <div className="rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-gray-50 dark:bg-gray-800/70">
+                                        <tr>
+                                            <th className="text-left px-4 py-3">
+                                                <button onClick={() => toggleSort("title")} className="inline-flex items-center gap-1.5 font-semibold text-gray-700 dark:text-gray-300">
+                                                    Title {sortIcon("title")}
+                                                </button>
+                                            </th>
+                                            <th className="text-left px-4 py-3">
+                                                <button onClick={() => toggleSort("status")} className="inline-flex items-center gap-1.5 font-semibold text-gray-700 dark:text-gray-300">
+                                                    Status {sortIcon("status")}
+                                                </button>
+                                            </th>
+                                            <th className="text-left px-4 py-3">
+                                                <button onClick={() => toggleSort("priority")} className="inline-flex items-center gap-1.5 font-semibold text-gray-700 dark:text-gray-300">
+                                                    Priority {sortIcon("priority")}
+                                                </button>
+                                            </th>
+                                            <th className="text-left px-4 py-3">
+                                                <span className="inline-flex items-center gap-1.5 font-semibold text-gray-700 dark:text-gray-300">
+                                                    Assignee
+                                                </span>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {orderedTasks.map((task) => {
+                                            const taskSlug = task.slug || task.task_slug || task.id;
+                                            const taskId = toTaskKey(task);
+                                            return (
+                                                <tr
+                                                    key={task.id}
+                                                    draggable
+                                                    onDragStart={() => setDraggingId(taskId)}
+                                                    onDragOver={(e) => e.preventDefault()}
+                                                    onDrop={() => moveItemTemporarily(taskId)}
+                                                    className="border-t border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/40 cursor-grab"
+                                                >
+                                                    <td className="px-4 py-3">
+                                                        <Link href={`/task/${taskSlug}`} className="font-semibold text-gray-900 dark:text-gray-100 hover:underline">
+                                                            {task.title}
+                                                        </Link>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{task.status || "-"}</td>
+                                                    <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{task.priority || "-"}</td>
+                                                    <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{getAssigneeLabel(task)}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {view === "list" && (
+                            <ul className="space-y-2">
                                 {orderedTasks.map((task) => {
                                     const taskSlug = task.slug || task.task_slug || task.id;
                                     const taskId = toTaskKey(task);
                                     return (
-                                        <tr
+                                        <li
                                             key={task.id}
                                             draggable
                                             onDragStart={() => setDraggingId(taskId)}
                                             onDragOver={(e) => e.preventDefault()}
                                             onDrop={() => moveItemTemporarily(taskId)}
-                                            className="border-t border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/40 cursor-grab"
+                                            className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 flex items-center justify-between gap-3 cursor-grab"
                                         >
-                                            <td className="px-4 py-3">
-                                                <Link href={`/task/${taskSlug}`} className="font-semibold text-gray-900 dark:text-gray-100 hover:underline">
+                                            <div className="flex flex-col min-w-0">
+                                                <Link href={`/task/${taskSlug}`} className="font-semibold text-gray-900 dark:text-gray-100 hover:underline truncate">
                                                     {task.title}
                                                 </Link>
-                                            </td>
-                                            <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{task.status || "-"}</td>
-                                            <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{task.priority || "-"}</td>
-                                        </tr>
+                                                <div className="text-xs text-gray-500">{getAssigneeLabel(task)}</div>
+                                            </div>
+                                            <div className="text-xs text-gray-500">{task.status || "-"}</div>
+                                        </li>
                                     );
                                 })}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                            </ul>
+                        )}
 
-                {view === "list" && (
-                    <ul className="space-y-2">
-                        {orderedTasks.map((task) => {
-                            const taskSlug = task.slug || task.task_slug || task.id;
-                            const taskId = toTaskKey(task);
-                            return (
-                                <li
-                                    key={task.id}
-                                    draggable
-                                    onDragStart={() => setDraggingId(taskId)}
-                                    onDragOver={(e) => e.preventDefault()}
-                                    onDrop={() => moveItemTemporarily(taskId)}
-                                    className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 flex items-center justify-between gap-3 cursor-grab"
+                        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 flex items-center justify-between">
+                            <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm text-gray-600 dark:text-gray-400">Items per page</label>
+                                    <select
+                                        onChange={(e) => {
+                                            setPerPage(Number(e.target.value));
+                                            setCurrentPage(1);
+                                        }}
+                                        value={perPage}
+                                        className="h-9 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-sm"
+                                    >
+                                        {[5, 10, 20, 50, 100].map((size) => (
+                                            <option key={size} value={size}>{size}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    {pagination.totalItems > 0
+                                        ? `Showing page ${pagination.currentPage} / ${pagination.totalPages} (${pagination.totalItems} total items)`
+                                        : `Showing page ${pagination.currentPage} / ${pagination.totalPages}`}
+                                </div>
+                            </div>
+                            <div className="inline-flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                    disabled={currentPage <= 1 || loading}
+                                    className="h-9 px-3 rounded-md border border-gray-300 dark:border-gray-700 disabled:opacity-50"
                                 >
-                                    <Link href={`/task/${taskSlug}`} className="font-semibold text-gray-900 dark:text-gray-100 hover:underline">
-                                        {task.title}
-                                    </Link>
-                                    <div className="text-xs text-gray-500">{task.status || "-"}</div>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                )}
+                                    Previous
+                                </button>
+                                <span className="text-sm min-w-20 text-center text-gray-700 dark:text-gray-300">{currentPage}</span>
+                                <button
+                                    onClick={() => setCurrentPage((p) => Math.min(pagination.totalPages, p + 1))}
+                                    disabled={currentPage >= pagination.totalPages || loading}
+                                    className="h-9 px-3 rounded-md border border-gray-300 dark:border-gray-700 disabled:opacity-50"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
-                <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
-                        <div className="flex items-center gap-2">
-                            <label className="text-sm text-gray-600 dark:text-gray-400">Items per page</label>
-                            <select
-                                onChange={(e) => {
-                                    setPerPage(Number(e.target.value));
-                                    setCurrentPage(1);
-                                }}
-                                value={perPage}
-                                className="h-9 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-sm"
-                            >
-                                {[5, 10, 20, 50, 100].map((size) => (
-                                    <option key={size} value={size}>{size}</option>
+                    <aside className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 sticky top-20">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Project Members</h3>
+                        {assignees.length === 0 ? (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">No members found for this project.</p>
+                        ) : (
+                            <ul className="space-y-1.5 max-h-[60vh] overflow-auto">
+                                {assignees.map((u) => (
+                                    <li key={String(u.id)} className="flex items-center justify-between rounded-md border border-gray-200 dark:border-gray-800 px-2 py-1.5">
+                                        <span className="text-sm text-gray-800 dark:text-gray-200 truncate pr-2">{u.name}</span>
+                                        <span className="text-[11px] rounded-full px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 capitalize">
+                                            {u.role || "member"}
+                                        </span>
+                                    </li>
                                 ))}
-                            </select>
-                        </div>
-                        <div>
-                            {pagination.totalItems > 0
-                                ? `Showing page ${pagination.currentPage} / ${pagination.totalPages} (${pagination.totalItems} total items)`
-                                : `Showing page ${pagination.currentPage} / ${pagination.totalPages}`}
-                        </div>
-                    </div>
-                    <div className="inline-flex items-center gap-2">
-                        <button
-                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                            disabled={currentPage <= 1 || loading}
-                            className="h-9 px-3 rounded-md border border-gray-300 dark:border-gray-700 disabled:opacity-50"
-                        >
-                            Previous
-                        </button>
-                        <span className="text-sm min-w-20 text-center text-gray-700 dark:text-gray-300">{currentPage}</span>
-                        <button
-                            onClick={() => setCurrentPage((p) => Math.min(pagination.totalPages, p + 1))}
-                            disabled={currentPage >= pagination.totalPages || loading}
-                            className="h-9 px-3 rounded-md border border-gray-300 dark:border-gray-700 disabled:opacity-50"
-                        >
-                            Next
-                        </button>
-                    </div>
+                            </ul>
+                        )}
+                    </aside>
                 </div>
             </div>
         </AppShell>

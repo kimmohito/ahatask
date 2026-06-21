@@ -107,22 +107,101 @@ export default function Sidebar() {
     const [peek, setPeek] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
 
+    const getAuthPayload = () => {
+        const token = getToken();
+        if (!token) return null;
+        try {
+            const parts = token.split(".");
+            if (parts.length < 2) return null;
+            return JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+        } catch {
+            return null;
+        }
+    };
+
+    const getCurrentUserId = () => {
+        const payload = getAuthPayload();
+        const uid = payload?.id ?? payload?.user_id ?? payload?.sub ?? null;
+        return uid !== null && uid !== undefined ? String(uid) : null;
+    };
+
+    const projectHasUser = (project: any, userId: string | null): boolean => {
+        if (!project || !userId) return false;
+        const uid = String(userId);
+
+        const directKeys = ["owner_id", "created_by", "created_by_id", "user_id", "assignee_id"];
+        for (const key of directKeys) {
+            if (project[key] !== undefined && project[key] !== null && String(project[key]) === uid) return true;
+        }
+
+        const collectionKeys = ["users", "members", "assignees", "team", "project_users"];
+        for (const key of collectionKeys) {
+            const list = project[key];
+            if (!Array.isArray(list)) continue;
+            const found = list.some((u: any) => {
+                const id = u?.id ?? u?.user_id ?? u?.member_id ?? u?.pivot?.user_id;
+                return id !== undefined && id !== null && String(id) === uid;
+            });
+            if (found) return true;
+        }
+
+        return false;
+    };
+
+    const hasMembershipHints = (project: any): boolean => {
+        if (!project) return false;
+        if (project.owner_id || project.created_by || project.created_by_id || project.user_id || project.assignee_id) {
+            return true;
+        }
+        const collectionKeys = ["users", "members", "assignees", "team", "project_users"];
+        return collectionKeys.some((key) => Array.isArray(project[key]) && project[key].length > 0);
+    };
+
     useEffect(() => {
         if (!isAuthenticated) {
             setProjects([]);
         } else {
             const load = async () => {
                 try {
-                    const res = await api.get("/api/projects");
+                    const payload = getAuthPayload();
+                    const userId = getCurrentUserId();
+                    const admin =
+                        !!payload?.is_admin ||
+                        payload?.role === "admin" ||
+                        (Array.isArray(payload?.roles) && payload.roles.includes("admin"));
+
+                    const res = await api.get("/api/projects", {
+                        params: admin
+                            ? undefined
+                            : {
+                                  mine: true,
+                                  member_only: true,
+                                  user_id: userId,
+                                  with_members: true,
+                              },
+                    });
                     const list = res?.data?.data ?? res?.data ?? [];
-                    setProjects(list);
+                    if (admin) {
+                        setProjects(Array.isArray(list) ? list : []);
+                    } else {
+                        const arr = Array.isArray(list) ? list : [];
+                        const includesMembershipData = arr.some((p: any) => hasMembershipHints(p));
+                        if (includesMembershipData) {
+                            const scoped = arr.filter((p: any) => projectHasUser(p, userId));
+                            setProjects(scoped);
+                        } else {
+                            // Backend already scoped results (e.g., via project_user join) but didn't include member arrays.
+                            setProjects(arr);
+                        }
+                    }
                 } catch (e) {
                     console.log("Failed to load projects", e);
+                    setProjects([]);
                 }
             };
             load();
         }
-    }, [isAuthenticated]);
+    }, [isAuthenticated, getToken]);
 
     useEffect(() => { setMounted(true); }, []);
 
