@@ -4,7 +4,8 @@ import "./globals.css";
 import Providers from "./providers";
 import AppShell from "./components/AppShell";
 import LoginModal from "./components/LoginModal";
-import CreateTaskModal from "./components/CreateTaskModal";
+import dynamic from "next/dynamic";
+const CreateTaskModal = dynamic(() => import("./components/CreateTaskModal"), { ssr: false });
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

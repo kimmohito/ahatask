@@ -1,8 +1,9 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import DashboardCard from "../components/DashboardCard";
-import StackedBarChart from "../components/StackedBarChart";
-import RadialChartWithTabs from "../components/RadialChartWithTabs";
+const StackedBarChart = dynamic(() => import("../components/StackedBarChart"), { ssr: false });
+const RadialChartWithTabs = dynamic(() => import("../components/RadialChartWithTabs"), { ssr: false });
 import TaskList from "../components/TaskList";
 import { IconChecklist, IconClock, IconPlayerPlay, IconCheck, IconFlag, IconCalendar, IconUserCheck } from "@tabler/icons-react";
 
