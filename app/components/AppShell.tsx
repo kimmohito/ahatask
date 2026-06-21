@@ -23,7 +23,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <Topbar />
       <main className="flex flex-1">
           <Sidebar />
-          <div className="flex max-w-7xl mx-auto">
+          <div className="flex-1 w-full min-w-0">
             {children}
           </div>
       </main>

@@ -10,6 +10,7 @@ import {
     IconLayoutKanban,
     IconList,
     IconTable,
+    IconSearch,
     IconArrowsSort,
     IconSortAscending,
     IconSortDescending,
@@ -53,6 +54,8 @@ export default function TasksProjectPageAlias() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(false);
     const [view, setView] = useState<"board" | "table" | "list">("table");
+    const [projectSearchInput, setProjectSearchInput] = useState("");
+    const [projectSearchQuery, setProjectSearchQuery] = useState("");
     const [perPage, setPerPage] = useState(10);
     const [sortBy, setSortBy] = useState<"title" | "status" | "priority">("title");
     const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -155,6 +158,13 @@ export default function TasksProjectPageAlias() {
                     per_page: perPage,
                     page: currentPage,
                     current_page: currentPage,
+                    q: projectSearchQuery,
+                    query: projectSearchQuery,
+                    search: projectSearchQuery,
+                    keyword: projectSearchQuery,
+                    scope: "project",
+                    search_scope: "project",
+                    include_all_projects: false,
                     sort_by: sortBy,
                     sort_dir: sortDir,
                     order_by: sortBy,
@@ -190,11 +200,18 @@ export default function TasksProjectPageAlias() {
             }, 300);
             return () => clearTimeout(timer);
         }
-    }, [isAuthenticated, filters, perPage, currentPage, sortBy, sortDir, org, project]);
+    }, [isAuthenticated, filters, perPage, currentPage, projectSearchQuery, sortBy, sortDir, org, project]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setProjectSearchQuery(projectSearchInput.trim());
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [projectSearchInput]);
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [perPage, filters.status, filters.priority, filters.assignee_id, filters.from, filters.to, org, project]);
+    }, [perPage, projectSearchQuery, filters.status, filters.priority, filters.assignee_id, filters.from, filters.to, org, project]);
 
     // load statuses from API if available, else derive from tasks or fallback defaults
     useEffect(() => {
@@ -390,12 +407,15 @@ export default function TasksProjectPageAlias() {
         return <IconSortDescending size={14} className="text-indigo-500" />;
     };
 
+    const currentViewIcon =
+        view === "board" ? <IconLayoutKanban size={16} /> : view === "table" ? <IconTable size={16} /> : <IconList size={16} />;
+
     if (!org || !project) return <div>Please select a project URL: /{`{org}`}/{`{project}`}/tasks</div>;
     if (loading) return <div>Loading tasks...</div>;
 
     return (
         <AppShell>
-            <div className="space-y-4">
+            <div className="space-y-4 w-full min-w-0 px-3 md:px-5 py-3">
                 <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 md:p-4">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div className="flex items-center gap-2">
@@ -422,25 +442,32 @@ export default function TasksProjectPageAlias() {
                             </span>
                         </div>
 
-                        <div className="inline-flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden self-start md:self-auto">
-                            <button
-                                onClick={() => setView("board")}
-                                className={`h-9 px-3 text-sm flex items-center gap-1.5 ${view === "board" ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300"}`}
-                            >
-                                <IconLayoutKanban size={16} /> Board
-                            </button>
-                            <button
-                                onClick={() => setView("table")}
-                                className={`h-9 px-3 text-sm flex items-center gap-1.5 border-l border-gray-300 dark:border-gray-700 ${view === "table" ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300"}`}
-                            >
-                                <IconTable size={16} /> Table
-                            </button>
-                            <button
-                                onClick={() => setView("list")}
-                                className={`h-9 px-3 text-sm flex items-center gap-1.5 border-l border-gray-300 dark:border-gray-700 ${view === "list" ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300"}`}
-                            >
-                                <IconList size={16} /> List
-                            </button>
+                        <div className="flex items-center gap-2 w-full md:w-auto md:justify-end">
+                            <div className="h-9 min-w-40 px-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 inline-flex items-center gap-2">
+                                <span className="text-gray-500 dark:text-gray-400 shrink-0">
+                                    {currentViewIcon}
+                                </span>
+                                <select
+                                    value={view}
+                                    onChange={(e) => setView(e.target.value as "board" | "table" | "list")}
+                                    className="h-full w-full bg-transparent text-sm capitalize outline-none"
+                                    aria-label="View mode"
+                                >
+                                    <option value="board">Board</option>
+                                    <option value="table">Table</option>
+                                    <option value="list">List</option>
+                                </select>
+                            </div>
+
+                            <div className="relative flex-1 md:flex-none md:w-80">
+                                <IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    value={projectSearchInput}
+                                    onChange={(e) => setProjectSearchInput(e.target.value)}
+                                    placeholder={`Search tasks in ${project || "project"}...`}
+                                    className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
