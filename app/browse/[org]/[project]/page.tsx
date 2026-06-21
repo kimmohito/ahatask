@@ -82,6 +82,7 @@ export default function TasksProjectPageAlias() {
     const [statuses, setStatuses] = useState<string[]>([]);
     const [priorities, setPriorities] = useState<string[]>([]);
     const [assignees, setAssignees] = useState<UserOption[]>([]);
+    const [orgName, setOrgName] = useState("");
 
     useEffect(() => {
         // initialise auth from localStorage on mount
@@ -410,36 +411,79 @@ export default function TasksProjectPageAlias() {
     const currentViewIcon =
         view === "board" ? <IconLayoutKanban size={16} /> : view === "table" ? <IconTable size={16} /> : <IconList size={16} />;
 
+    const projectTitle = String(project || "project")
+        .split("-")
+        .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
+        .join(" ");
+    const orgSlug = String(org || "org");
+    const projectSlug = String(project || "project");
+    const orgTitleFallback = orgSlug
+        .split("-")
+        .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
+        .join(" ");
+    const orgTitle = orgName || orgTitleFallback;
+
+    useEffect(() => {
+        const loadOrgName = async () => {
+            if (!org) {
+                setOrgName("");
+                return;
+            }
+
+            try {
+                const res = await api.get(`/api/organizations/${org}`);
+                const data = res?.data?.data ?? res?.data ?? null;
+                const name = data?.name || data?.title || data?.organization_name || "";
+                if (name) {
+                    setOrgName(String(name));
+                    return;
+                }
+            } catch (e) {
+                // fallback to projects endpoint
+            }
+
+            try {
+                const res = await api.get("/api/projects", { params: { org, project, per_page: 1 } });
+                const list = res?.data?.data ?? res?.data ?? [];
+                const first = Array.isArray(list) ? list[0] : null;
+                const name =
+                    first?.organization?.name ||
+                    first?.org_name ||
+                    first?.organization_name ||
+                    "";
+                if (name) {
+                    setOrgName(String(name));
+                    return;
+                }
+            } catch (e) {
+                // ignore and keep fallback
+            }
+
+            setOrgName("");
+        };
+
+        loadOrgName();
+    }, [org, project]);
+
     if (!org || !project) return <div>Please select a project URL: /{`{org}`}/{`{project}`}/tasks</div>;
     if (loading) return <div>Loading tasks...</div>;
 
     return (
         <AppShell>
             <div className="space-y-4 w-full min-w-0 px-3 md:px-5 py-3">
+                <div className="space-y-1">
+                    <h1 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-gray-100">{orgTitle} {">"} {projectTitle}</h1>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Browse / {orgSlug} / {projectSlug}</p>
+                </div>
+
                 <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 md:p-4">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div className="flex items-center gap-2">
-                            <label className="text-sm text-gray-600 dark:text-gray-400">Items per page</label>
-                            <select
-                                onChange={(e) => {
-                                    setPerPage(Number(e.target.value));
-                                    setCurrentPage(1);
-                                }}
-                                value={perPage}
-                                className="h-9 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-sm"
-                            >
-                                {[5, 10, 20, 50, 100].map((size) => (
-                                    <option key={size} value={size}>{size}</option>
-                                ))}
-                            </select>
                             {localSequence && (
                                 <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-1 text-xs">
                                     Manual sequence active
                                 </span>
                             )}
-                            <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
-                                Page {pagination.currentPage} of {pagination.totalPages}
-                            </span>
                         </div>
 
                         <div className="flex items-center gap-2 w-full md:w-auto md:justify-end">
@@ -459,6 +503,29 @@ export default function TasksProjectPageAlias() {
                                 </select>
                             </div>
 
+                            {view === "board" && (
+                                <div className="inline-flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
+                                    <button
+                                        onClick={() => setBoardGroupBy("status")}
+                                        className={`h-9 px-3 text-sm ${boardGroupBy === "status" ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300"}`}
+                                    >
+                                        Status
+                                    </button>
+                                    <button
+                                        onClick={() => setBoardGroupBy("priority")}
+                                        className={`h-9 px-3 text-sm border-l border-gray-300 dark:border-gray-700 ${boardGroupBy === "priority" ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300"}`}
+                                    >
+                                        Priority
+                                    </button>
+                                    <button
+                                        onClick={() => setBoardGroupBy("assignee")}
+                                        className={`h-9 px-3 text-sm border-l border-gray-300 dark:border-gray-700 ${boardGroupBy === "assignee" ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300"}`}
+                                    >
+                                        Assignee
+                                    </button>
+                                </div>
+                            )}
+
                             <div className="relative flex-1 md:flex-none md:w-80">
                                 <IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                 <input
@@ -474,27 +541,6 @@ export default function TasksProjectPageAlias() {
 
                 {view === "board" && (
                     <div className="space-y-3">
-                        <div className="inline-flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
-                            <button
-                                onClick={() => setBoardGroupBy("status")}
-                                className={`h-9 px-3 text-sm ${boardGroupBy === "status" ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300"}`}
-                            >
-                                Status
-                            </button>
-                            <button
-                                onClick={() => setBoardGroupBy("priority")}
-                                className={`h-9 px-3 text-sm border-l border-gray-300 dark:border-gray-700 ${boardGroupBy === "priority" ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300"}`}
-                            >
-                                Priority
-                            </button>
-                            <button
-                                onClick={() => setBoardGroupBy("assignee")}
-                                className={`h-9 px-3 text-sm border-l border-gray-300 dark:border-gray-700 ${boardGroupBy === "assignee" ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300"}`}
-                            >
-                                Assignee
-                            </button>
-                        </div>
-
                         <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.max(boardColumns.length, 1)}, minmax(220px, 1fr))` }}>
                             {boardColumns.length === 0 && <div>No columns available</div>}
                             {boardColumns.map((column) => (
@@ -613,10 +659,27 @@ export default function TasksProjectPageAlias() {
                 )}
 
                 <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 flex items-center justify-between">
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {pagination.totalItems > 0
-                            ? `Showing page ${pagination.currentPage} / ${pagination.totalPages} (${pagination.totalItems} total items)`
-                            : `Showing page ${pagination.currentPage} / ${pagination.totalPages}`}
+                    <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm text-gray-600 dark:text-gray-400">Items per page</label>
+                            <select
+                                onChange={(e) => {
+                                    setPerPage(Number(e.target.value));
+                                    setCurrentPage(1);
+                                }}
+                                value={perPage}
+                                className="h-9 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-sm"
+                            >
+                                {[5, 10, 20, 50, 100].map((size) => (
+                                    <option key={size} value={size}>{size}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            {pagination.totalItems > 0
+                                ? `Showing page ${pagination.currentPage} / ${pagination.totalPages} (${pagination.totalItems} total items)`
+                                : `Showing page ${pagination.currentPage} / ${pagination.totalPages}`}
+                        </div>
                     </div>
                     <div className="inline-flex items-center gap-2">
                         <button
