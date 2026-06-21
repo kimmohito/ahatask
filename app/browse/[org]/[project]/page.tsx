@@ -117,7 +117,6 @@ export default function TasksProjectPageAlias() {
                 {view === "board" && (
                     <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(statuses.length, 1)}, 1fr)`, gap: 12 }}>
                         {statuses.length === 0 && <div>No status columns available</div>}
-
                         {statuses.map((status) => (
                             <div key={status} style={{ border: "1px solid #ddd", padding: 8, borderRadius: 6 }}>
                                 <h3 style={{ textTransform: "capitalize" }}>{status}</h3>
@@ -127,7 +126,7 @@ export default function TasksProjectPageAlias() {
                                         const taskSlug = task.slug || task.task_slug || task.id;
                                         return (
                                             <div key={task.id} style={{ padding: 8, marginBottom: 8, background: "#fafafa", borderRadius: 4 }}>
-                                                <a href={`/browse/${org}/${project}/${taskSlug}`} style={{ fontWeight: 700 }}>{task.title}</a>
+                                                <a href={`/task/${taskSlug}`} style={{ fontWeight: 700 }}>{task.title}</a>
                                                 <div style={{ fontSize: 12, color: "#666" }}>{task.status}</div>
                                             </div>
                                         );
@@ -152,7 +151,7 @@ export default function TasksProjectPageAlias() {
                                 const taskSlug = task.slug || task.task_slug || task.id;
                                 return (
                                     <tr key={task.id}>
-                                        <td><a href={`/browse/${org}/${project}/${taskSlug}`} style={{ fontWeight: 700 }}>{task.title}</a></td>
+                                        <td><a href={`/task/${taskSlug}`} style={{ fontWeight: 700 }}>{task.title}</a></td>
                                         <td>{task.status}</td>
                                         <td>{task.priority}</td>
                                     </tr>
@@ -168,7 +167,7 @@ export default function TasksProjectPageAlias() {
                             const taskSlug = task.slug || task.task_slug || task.id;
                             return (
                                 <li key={task.id}>
-                                    <a href={`/browse/${org}/${project}/${taskSlug}`}>{task.title}</a> - {task.status}
+                                    <a href={`/task/${taskSlug}`}>{task.title}</a> - {task.status}
                                 </li>
                             );
                         })}
