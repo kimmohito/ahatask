@@ -10,6 +10,7 @@ const Topbar = () => {
     const { isAuthenticated, username } = useAuthStore();
     const pinned = useUiStore((s) => s.pinned);
     const setPinned = useUiStore((s) => s.setPinned);
+    const collapsed = useUiStore((s) => s.collapsed);
     const setCollapsed = useUiStore((s) => s.setCollapsed);
     const setShowLoginModal = useUiStore((s) => s.setShowLoginModal);
     const getToken = useAuthStore((s) => s.getToken);
@@ -57,7 +58,7 @@ const Topbar = () => {
                 <button
                     aria-label="Toggle sidebar"
                     className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-                    onClick={() => { setPinned(!pinned); setCollapsed(false); }}
+                    onClick={() => { setCollapsed(!collapsed); }}
                 >
                     <IconMenu2 size={18} />
                 </button>
@@ -86,7 +87,7 @@ const Topbar = () => {
                             ))}
                             <div className="p-2 text-xs text-gray-500">Results</div>
                             {results.map((r, i) => (
-                                <Link key={r.slug} href={`/tasks/${r.slug}`} className="block px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                <Link key={r.slug} href={`/browse/${r.slug}`} className="block px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700">
                                     <div className="text-sm font-medium">{r.name}</div>
                                     <div className="text-xs text-gray-500">{r.assignee} • {r.reporter}</div>
                                 </Link>

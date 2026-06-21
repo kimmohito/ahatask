@@ -132,7 +132,7 @@ export default function ProjectTasksPage() {
                                     const taskSlug = task.slug || task.task_slug || task.id;
                                     return (
                                     <div key={task.id} style={{ padding: 8, marginBottom: 8, background: "#fafafa", borderRadius: 4 }}>
-                                        <a href={`/tasks/${org}/${project}/${taskSlug}`} style={{ fontWeight: 700 }}>{task.title}</a>
+                                        <a href={`/browse/${org}/${project}/${taskSlug}`} style={{ fontWeight: 700 }}>{task.title}</a>
                                         <div style={{ fontSize: 12, color: "#666" }}>{task.status}</div>
                                     </div>
                                     );
@@ -158,7 +158,7 @@ export default function ProjectTasksPage() {
                             const taskSlug = task.slug || task.task_slug || task.id;
                             return (
                             <tr key={task.id}>
-                                <td><a href={`/tasks/${org}/${project}/${taskSlug}`} style={{ fontWeight: 700 }}>{task.title}</a></td>
+                                <td><a href={`/browse/${org}/${project}/${taskSlug}`} style={{ fontWeight: 700 }}>{task.title}</a></td>
                                 <td>{task.status}</td>
                                 <td>{task.priority}</td>
                             </tr>
@@ -174,7 +174,7 @@ export default function ProjectTasksPage() {
                         const taskSlug = task.slug || task.task_slug || task.id;
                         return (
                         <li key={task.id}>
-                            <a href={`/tasks/${org}/${project}/${taskSlug}`}>{task.title}</a> - {task.status}
+                            <a href={`/browse/${org}/${project}/${taskSlug}`}>{task.title}</a> - {task.status}
                         </li>
                         );
                     })}

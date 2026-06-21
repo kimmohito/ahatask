@@ -144,8 +144,7 @@ export default function CreateTaskModal() {
           )}
 
           {/* Footer: compact controls always visible to avoid large whitespace */}
-          <div className="border-t pt-3 pb-2 mt-2 flex items-center justify-between gap-2">
-            <div className="text-sm text-[color:var(--muted)]">{storedTask ? 'Viewing saved task' : 'Create a new task'}</div>
+          <div className="border-t pt-3 pb-2 mt-2 flex items-center justify-end gap-2">
             <div className="flex items-center gap-2">
               <button onClick={() => setShow(false)} className="px-3 py-1 rounded text-sm hover:bg-gray-100">Cancel</button>
               {!storedTask && (

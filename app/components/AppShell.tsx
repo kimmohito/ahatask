@@ -3,7 +3,10 @@
 import React from "react";
 import Topbar from "../layout/Topbar";
 import Sidebar from "./Sidebar";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
+const LoginModal = dynamic(() => import("./LoginModal"), { ssr: false });
+const CreateTaskModal = dynamic(() => import("./CreateTaskModal"), { ssr: false });
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,12 +19,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div>
+    <>
       <Topbar />
-      <div className="flex flex-1">
-        <Sidebar />
-        {children}
-      </div>
-    </div>
+      <main style={{ flex: 1, padding: 16 }}>
+        <div className="flex flex-1">
+          <Sidebar />
+          {children}
+        </div>
+        <LoginModal />
+      </main>
+      <CreateTaskModal />
+    </>
   );
 }

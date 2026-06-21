@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import api from "@/lib/api";
+import AppShell from "@/app/components/AppShell";
 
 export default function TaskDetailTasksRoute() {
   const params = useParams() as { org?: string; project?: string; taskId?: string };
@@ -31,11 +32,13 @@ export default function TaskDetailTasksRoute() {
   if (!task) return <div>Task not found</div>;
 
   return (
-    <div>
-      <h1>{task.title}</h1>
-      <div>Status: {task.status}</div>
-      <div>Project: {project}</div>
-      <div style={{ marginTop: 12 }}>{task.description}</div>
-    </div>
+    <AppShell>
+      <div>
+        <h1>{task.title}</h1>
+        <div>Status: {task.status}</div>
+        <div>Project: {project}</div>
+        <div style={{ marginTop: 12 }}>{task.description}</div>
+      </div>
+    </AppShell>
   );
 }

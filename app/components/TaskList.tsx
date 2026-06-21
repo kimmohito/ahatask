@@ -43,7 +43,7 @@ export default function TaskList({ tasks = [], maxVisible = 3 }: Props) {
   return (
     <div style={containerStyle} className="space-y-3">
       {tasks.slice(0, 10).map((t) => (
-        <div key={t.id} className="flex items-center gap-3 p-3 rounded-lg bg-white/60 dark:bg-gray-800 shadow-sm hover:shadow-md transition-transform transform hover:-translate-y-0.5">
+        <div key={t.id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-transform transform hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer">
           <div className={`w-1 h-12 rounded ${statusColor(t.status)}`} />
 
           <div className="flex-1 min-w-0">
