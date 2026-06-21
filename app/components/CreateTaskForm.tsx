@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 
 type User = { id: number; name?: string; email?: string; username?: string };
 
-export default function CreateTaskForm({ onCreated }: { onCreated?: (task: any) => void }) {
+export default function CreateTaskForm({ onStored, hideSubmit, onRegisterSubmit }: { onStored?: (task: any) => void, hideSubmit?: boolean, onRegisterSubmit?: (fn: () => Promise<void>) => void }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [assignee, setAssignee] = useState<string | number | null>(null);
@@ -43,13 +43,35 @@ export default function CreateTaskForm({ onCreated }: { onCreated?: (task: any) 
       }
     };
     loadUsers();
+
+    // load draft from localStorage
+    try {
+      const raw = localStorage.getItem('createTaskDraft');
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d.title) setTitle(d.title);
+        if (d.description) setDescription(d.description);
+        if (d.assignee) setAssignee(d.assignee);
+        if (d.status) setStatus(d.status);
+        if (d.priority) setPriority(d.priority);
+      }
+    } catch (e) {}
   }, []);
 
   const assignToMe = () => {
     setAssignee(reporterId ?? reporter ?? "");
   };
 
+  // persist draft to localStorage on changes (debounced simple)
+  useEffect(() => {
+    try {
+      const draft = { title, description, assignee, status, priority };
+      localStorage.setItem('createTaskDraft', JSON.stringify(draft));
+    } catch (e) {}
+  }, [title, description, assignee, status, priority]);
+
   const submit = async () => {
+    // "Store" action: persist to DB but keep modal open and return saved task
     if (!title.trim()) {
       setError('Title is required');
       return;
@@ -62,14 +84,24 @@ export default function CreateTaskForm({ onCreated }: { onCreated?: (task: any) 
       if (reporterId) payload.reporter_id = reporterId;
       const res = await api.post('/api/tasks', payload);
       const task = res?.data?.data ?? res?.data ?? null;
-      if (onCreated) onCreated(task);
-      if (task && task.slug) router.push(`/tasks/${task.slug}`);
+      // do not navigate; notify parent modal to show saved task view
+      if (onStored) onStored(task);
+      // keep draft in localStorage until user clears or navigates
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || 'Failed to create task');
     } finally {
       setLoading(false);
     }
   };
+
+  // expose submit to parent so modal footer can trigger it (register once)
+  useEffect(() => {
+    if (!onRegisterSubmit) return;
+    try {
+      onRegisterSubmit(submit);
+    } catch (e) {}
+    // only run when onRegisterSubmit identity changes
+  }, [onRegisterSubmit]);
 
   return (
     <div>
@@ -81,7 +113,7 @@ export default function CreateTaskForm({ onCreated }: { onCreated?: (task: any) 
       <label className="text-sm text-[color:var(--muted)]">Description</label>
       <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="w-full px-3 py-2 border rounded mt-1 mb-3" />
 
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-baseline-last gap-2 mb-3">
         <div className="flex-1">
           <label className="text-sm text-[color:var(--muted)]">Assignee</label>
           <select value={String(assignee ?? "")} onChange={(e) => setAssignee(e.target.value || null)} className="w-full px-2 py-2 border rounded mt-1">
@@ -117,11 +149,13 @@ export default function CreateTaskForm({ onCreated }: { onCreated?: (task: any) 
         </div>
       </div>
 
-      <div className="flex justify-end">
-        <button onClick={submit} disabled={loading} className="px-4 py-2 bg-indigo-600 text-white rounded">
-          {loading ? 'Creating...' : 'Create Task'}
-        </button>
-      </div>
+      {!hideSubmit && (
+        <div className="flex justify-end">
+          <button onClick={submit} disabled={loading} className="px-4 py-2 bg-indigo-600 text-white rounded">
+            {loading ? 'Creating...' : 'Create Task'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

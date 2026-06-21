@@ -7,6 +7,7 @@ import Link from "next/link";
 import { IconMenu2, IconSearch } from "@tabler/icons-react"
 
 const Topbar = () => {
+    const { isAuthenticated, username } = useAuthStore();
     const pinned = useUiStore((s) => s.pinned);
     const setPinned = useUiStore((s) => s.setPinned);
     const setCollapsed = useUiStore((s) => s.setCollapsed);
@@ -44,18 +45,6 @@ const Topbar = () => {
         return () => document.removeEventListener("click", onDoc);
     }, []);
 
-    const token = typeof window !== "undefined" ? getToken() : null;
-    let userName = "";
-    try {
-        if (token) {
-            const parts = token.split('.');
-            if (parts.length > 1) {
-                const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-                userName = payload?.name || payload?.username || "User";
-            }
-        }
-    } catch (e) { }
-
     const results = demoData.filter(d => {
         if (!query) return true;
         const q = query.toLowerCase();
@@ -63,7 +52,7 @@ const Topbar = () => {
     });
 
     return (
-        <div className="w-full h-16 flex items-center justify-between px-4 border-b border-gray-300">
+        <div className="sticky top-0 z-50 w-full h-16 flex items-center justify-between px-4 border-b border-gray-300 bg-[color:var(--background)]">
             <div className="flex items-center gap-3">
                 <button
                     aria-label="Toggle sidebar"
@@ -108,10 +97,10 @@ const Topbar = () => {
             </div>
 
             <div>
-                {token ? (
+                {isAuthenticated ? (
                     <div className="relative inline-block">
                         <button onClick={() => setProfileOpen((s) => !s)} className="flex items-center gap-2 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800">
-                            <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-sm">{userName ? userName[0].toUpperCase() : "U"}</div>
+                            <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-sm">{username ? username[0].toUpperCase() : "U"}</div>
                         </button>
                         {profileOpen && (
                             <div className="absolute right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow z-50">

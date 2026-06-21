@@ -1,9 +1,11 @@
 import { create } from "zustand";
 
 type AuthState = {
-    token: string | null;
     isAuthenticated: boolean;
+    token: string | null;
     setToken: (token: string) => void;
+    username: string;
+    getUsername: () => void;
     logout: () => void;
     checkToken: () => boolean;
     syncFromStorage: () => void;
@@ -25,14 +27,20 @@ function decodePayload(token: string) {
 }
 
 const useAuthStore = create<AuthState>((set, get) => ({
-    token: null,
     isAuthenticated: false,
+    token: null,
     setToken: (token: string) => {
         try {
             localStorage.setItem("token", token);
         } catch (e) { }
-
         set({ token, isAuthenticated: true });
+    },
+    username: "",
+    getUsername: () => {
+        const token = get().token;
+        if (!token) return null;
+        const payload = decodePayload(token);
+        set({ username: payload?.name || payload?.username || "User" });
     },
     logout: () => {
         try {

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/lib/theme";
 import useAuthStore from "@/lib/authStore";
 import useUiStore from "@/lib/uiStore";
 

@@ -35,7 +35,8 @@ export default function RootLayout({
       <body className="flex-col flex min-h-full">
         <Providers>
           <AppShell>
-            <main style={{ flex: 1, padding: 16 }}>{children}</main>
+            <main style={{ flex: 1, padding: 16 }}>
+              {children}</main>
           </AppShell>
           <LoginModal />
           <CreateTaskModal />
