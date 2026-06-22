@@ -266,6 +266,12 @@ export default function Sidebar() {
                     open={open.projects}
                     onToggle={() => setOpen((s) => ({ ...s, projects: !s.projects }))}
                 >
+                    <SubItem
+                        href="/browse/projects"
+                        label="Projects list"
+                        active={pathname === "/browse/projects" || pathname?.startsWith("/browse/projects/")}
+                    />
+
                     {projectList.length === 0 ? (
                         <p className="px-3 py-1.5 text-xs text-gray-400 dark:text-gray-500">No projects</p>
                     ) : (
@@ -284,6 +290,12 @@ export default function Sidebar() {
                             );
                         })
                     )}
+
+                    <SubItem
+                        href="/browse/organisation"
+                        label="Manage organisation"
+                        active={pathname === "/browse/organisation" || pathname?.startsWith("/browse/organisation/")}
+                    />
                 </NavItem>
 
                 {isAdmin && (

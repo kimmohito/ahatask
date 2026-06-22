@@ -5,6 +5,7 @@ import { IconChevronRight } from "@tabler/icons-react";
 
 type Task = {
   id: string | number;
+  slug?: string;
   title: string;
   subtitle?: string;
   status?: string;
@@ -14,6 +15,7 @@ type Task = {
 type Props = {
   tasks?: Task[];
   maxVisible?: number; // how many visible before scroll
+  onTaskClick?: (task: Task) => void;
 };
 
 function statusColor(status?: string) {
@@ -24,7 +26,7 @@ function statusColor(status?: string) {
   return "bg-slate-300";
 }
 
-export default function TaskList({ tasks = [], maxVisible = 3 }: Props) {
+export default function TaskList({ tasks = [], maxVisible = 3, onTaskClick }: Props) {
   const sortedTasks = React.useMemo(() => {
     if (typeof window === "undefined") return tasks;
 
@@ -65,7 +67,12 @@ export default function TaskList({ tasks = [], maxVisible = 3 }: Props) {
   return (
     <div style={containerStyle} className="space-y-3">
       {sortedTasks.slice(0, 10).map((t) => (
-        <div key={t.id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-transform transform hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer">
+        <button
+          key={t.id}
+          type="button"
+          onClick={() => onTaskClick?.(t)}
+          className="w-full text-left flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-transform transform hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer"
+        >
           <div className={`w-1 h-12 rounded ${statusColor(t.status)}`} />
 
           <div className="flex-1 min-w-0">
@@ -84,7 +91,7 @@ export default function TaskList({ tasks = [], maxVisible = 3 }: Props) {
               </div>
             </div>
           </div>
-        </div>
+        </button>
       ))}
     </div>
   );

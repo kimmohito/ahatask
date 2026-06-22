@@ -5,12 +5,28 @@ import React, { useState } from "react";
 type Props = {
   totalOwned: number;
   totalAll: number;
+  byStatus?: {
+    todo?: number;
+    in_progress?: number;
+    completed?: number;
+    other?: number;
+  };
   onFilterChange?: (filter: string) => void;
 };
 
-export default function RadialChartWithTabs({ totalOwned, totalAll, onFilterChange }: Props) {
+export default function RadialChartWithTabs({ totalOwned, totalAll, byStatus, onFilterChange }: Props) {
   const [tab, setTab] = useState("all");
-  const percent = totalAll === 0 ? 0 : Math.round((totalOwned / totalAll) * 100);
+  const selectedValue =
+    tab === "todo"
+      ? byStatus?.todo ?? 0
+      : tab === "in_progress"
+      ? byStatus?.in_progress ?? 0
+      : tab === "completed"
+      ? byStatus?.completed ?? 0
+      : totalOwned;
+  const safeTotal = Math.max(0, totalAll);
+  const rawPercent = safeTotal === 0 ? 0 : Math.round((selectedValue / safeTotal) * 100);
+  const percent = Math.max(0, Math.min(100, rawPercent));
 
   const size = 120;
   const stroke = 12;
@@ -27,10 +43,11 @@ export default function RadialChartWithTabs({ totalOwned, totalAll, onFilterChan
     <div className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
       <div className="flex items-center justify-between mb-3">
         <div className="text-sm text-gray-500 dark:text-gray-300">Ownership</div>
-        <div className="space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => change("all")} className={`px-2 py-1 rounded ${tab==="all"?"bg-gray-200 dark:bg-gray-700":""}`}>All</button>
           <button onClick={() => change("todo")} className={`px-2 py-1 rounded ${tab==="todo"?"bg-gray-200 dark:bg-gray-700":""}`}>Todo</button>
-          <button onClick={() => change("inprogress")} className={`px-2 py-1 rounded ${tab==="inprogress"?"bg-gray-200 dark:bg-gray-700":""}`}>In Progress</button>
+          <button onClick={() => change("in_progress")} className={`px-2 py-1 rounded ${tab==="in_progress"?"bg-gray-200 dark:bg-gray-700":""}`}>In Progress</button>
+          <button onClick={() => change("completed")} className={`px-2 py-1 rounded ${tab==="completed"?"bg-gray-200 dark:bg-gray-700":""}`}>Completed</button>
         </div>
       </div>
 
@@ -52,8 +69,10 @@ export default function RadialChartWithTabs({ totalOwned, totalAll, onFilterChan
           </g>
         </svg>
         <div>
-          <div className="text-sm text-gray-500 dark:text-gray-300">You own</div>
-          <div className="text-lg font-semibold">{totalOwned} / {totalAll}</div>
+          <div className="text-sm text-gray-500 dark:text-gray-300">
+            {tab === "all" ? "You own" : `${tab.replace("_", " ")} tasks`}
+          </div>
+          <div className="text-lg font-semibold">{selectedValue} / {safeTotal}</div>
         </div>
       </div>
     </div>

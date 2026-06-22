@@ -25,14 +25,17 @@ export default function StackedBarChart({ users, labels, width = 600, height = 2
 
   const days = labels.length;
   const maxPerDay = Math.max(
+    0,
     ...labels.map((_, day) => users.reduce((s, u) => s + (u.values[day] || 0), 0))
   );
 
   const barWidth = width / Math.max(1, days) - 8;
   const gap = 8;
+  const chartHeight = height - 40;
+  const hasData = users.length > 0 && maxPerDay > 0;
 
   return (
-    <svg width={width} height={height} className="block">
+    <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet" className="block">
       {labels.map((lab, day) => {
         let y = height; // start from bottom
         // for stacking draw in order so big totals are at bottom
@@ -41,7 +44,7 @@ export default function StackedBarChart({ users, labels, width = 600, height = 2
             {order.map((userIndex) => {
               const u = users[userIndex];
               const val = u.values[day] || 0;
-              const h = maxPerDay === 0 ? 0 : (val / maxPerDay) * (height - 40);
+              const h = maxPerDay === 0 ? 0 : (val / maxPerDay) * chartHeight;
               const rect = (
                 <rect
                   key={u.name + day}
@@ -59,6 +62,11 @@ export default function StackedBarChart({ users, labels, width = 600, height = 2
           </g>
         );
       })}
+      {!hasData ? (
+        <text x={width / 2} y={height / 2 - 8} fontSize={13} textAnchor="middle" fill="var(--muted)">
+          No activity data
+        </text>
+      ) : null}
     </svg>
   );
 }

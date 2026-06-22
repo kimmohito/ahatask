@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import DashboardCard from "../components/DashboardCard";
 const StackedBarChart = dynamic(() => import("../components/StackedBarChart"), { ssr: false });
@@ -70,6 +71,7 @@ const ACTIVITY_COLORS = [
 ];
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [dashboard, setDashboard] = useState<DashboardResponse["data"] | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -120,15 +122,28 @@ export default function DashboardPage() {
   const yourTasks = groups?.your_tasks ?? [];
 
   const chartLabels = activity?.labels?.length ? activity.labels : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const activityUsers = Array.isArray(activity?.users) ? activity.users : [];
   const chartUsers = useMemo(
     () =>
-      (activity?.users ?? []).map((u, index) => ({
+      activityUsers.map((u, index) => ({
         name: u.name,
         color: ACTIVITY_COLORS[index % ACTIVITY_COLORS.length],
-        values: Array.isArray(u.values) ? u.values : [],
+        values: Array.isArray(u.values) ? u.values.map((v) => Number(v) || 0) : [],
       })),
-    [activity?.users]
+    [activityUsers]
   );
+
+  function toTaskListItems(tasks: DashboardTask[]) {
+    return tasks.map((t) => ({
+      ...t,
+      subtitle: t.subtitle || t.project?.name || (t.priority ? `Priority: ${t.priority}` : "Task"),
+    }));
+  }
+
+  function handleTaskClick(task: { slug?: string; id: string | number }) {
+    const destination = task.slug ? `/task/${task.slug}` : `/task/${task.id}`;
+    router.push(destination);
+  }
 
   return (
     <AppShell>
@@ -149,19 +164,19 @@ export default function DashboardPage() {
           <div className="surface-muted p-4 rounded-lg">
             <DashboardCard title="Top priority tasks" value={priorityTasks.length} icon={<IconFlag />} iconBg="icon-red" iconColor="var(--accent-red)" />
             <div className="mt-3">
-              <TaskList tasks={priorityTasks} maxVisible={3} />
+              <TaskList tasks={toTaskListItems(priorityTasks)} maxVisible={3} onTaskClick={handleTaskClick} />
             </div>
           </div>
           <div className="surface-muted p-4 rounded-lg">
             <DashboardCard title="Due" value={dueTasks.length} icon={<IconCalendar />} iconBg="icon-yellow" iconColor="var(--accent-yellow)" />
             <div className="mt-3">
-              <TaskList tasks={dueTasks} maxVisible={3} />
+              <TaskList tasks={toTaskListItems(dueTasks)} maxVisible={3} onTaskClick={handleTaskClick} />
             </div>
           </div>
           <div className="surface-muted p-4 rounded-lg">
             <DashboardCard title="Your Task" value={yourTasks.length} icon={<IconUserCheck />} iconBg="icon-blue" iconColor="var(--accent-blue)" />
             <div className="mt-3">
-              <TaskList tasks={yourTasks} maxVisible={3} />
+              <TaskList tasks={toTaskListItems(yourTasks)} maxVisible={3} onTaskClick={handleTaskClick} />
             </div>
           </div>
         </div>
@@ -172,8 +187,11 @@ export default function DashboardPage() {
               <div>
                 <div className="text-sm" style={{ color: "var(--muted)" }}>Activity</div>
                 <div className="text-lg font-semibold">Completed per day</div>
+                <div className="text-xs" style={{ color: "var(--muted)" }}>
+                  Total this week: {activity?.total_completed_this_week ?? 0}
+                </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap justify-end">
                 {chartUsers.map((u) => (
                   <div key={u.name} className="flex items-center gap-2 text-sm" style={{ color: u.color }}>
                     <span style={{ width: 12, height: 8, background: u.color, display: 'inline-block', borderRadius: 3 }} />
@@ -183,7 +201,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="h-55">
-              <StackedBarChart users={chartUsers} labels={chartLabels} width={560} height={220} />
+              <StackedBarChart users={chartUsers} labels={chartLabels} height={220} />
             </div>
           </div>
 
@@ -191,7 +209,13 @@ export default function DashboardPage() {
             <div className="surface-muted rounded-lg p-4 h-full">
               <div className="text-sm" style={{ color: "var(--muted)" }}>Overview</div>
               <div className="text-lg font-semibold mb-2">Status distribution</div>
-              <div className="h-50"><RadialChartWithTabs totalOwned={overview?.total_owned ?? 0} totalAll={overview?.total_all ?? totals} /></div>
+              <div className="h-50">
+                <RadialChartWithTabs
+                  totalOwned={overview?.total_owned ?? 0}
+                  totalAll={overview?.total_all ?? totals}
+                  byStatus={overview?.by_status}
+                />
+              </div>
             </div>
           </div>
         </div>
