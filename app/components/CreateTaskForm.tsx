@@ -3,8 +3,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 import api from "@/lib/api";
 import useAuthStore from "@/lib/authStore";
+import { usePathname } from "next/navigation";
 
 type User = { id: number; name?: string; email?: string; username?: string };
+type ProjectOption = { id: number | string; name?: string; slug?: string; project_slug?: string };
 
 type TaskFormMode = "create" | "edit";
 
@@ -18,11 +20,14 @@ type TaskFormProps = {
 };
 
 export default function CreateTaskForm({ mode = "create", task, onStored, onUpdated, hideSubmit, onRegisterSubmit }: TaskFormProps) {
+  const pathname = usePathname();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [assignee, setAssignee] = useState<string | number | null>(null);
+  const [projectId, setProjectId] = useState<string | number | null>(null);
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [status, setStatus] = useState("open");
+  const [status, setStatus] = useState("todo");
   const [priority, setPriority] = useState("normal");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +51,8 @@ export default function CreateTaskForm({ mode = "create", task, onStored, onUpda
       setTitle(task.title ?? "");
       setDescription(task.description ?? "");
       setAssignee(task.assignee_id ?? task.assignee?.id ?? task.assignee ?? null);
-      setStatus(task.status ?? "open");
+      setProjectId(task.project_id ?? task.project?.id ?? null);
+      setStatus(task.status ?? "todo");
       setPriority(task.priority ?? "normal");
       return;
     }
@@ -59,6 +65,7 @@ export default function CreateTaskForm({ mode = "create", task, onStored, onUpda
           if (d.title) setTitle(d.title);
           if (d.description) setDescription(d.description);
           if (d.assignee) setAssignee(d.assignee);
+          if (d.projectId) setProjectId(d.projectId);
           if (d.status) setStatus(d.status);
           if (d.priority) setPriority(d.priority);
         }
@@ -67,6 +74,34 @@ export default function CreateTaskForm({ mode = "create", task, onStored, onUpda
   }, [mode, task]);
 
   useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        const res = await api.get('/api/projects', { params: { with_members: true } });
+        const list = res?.data?.data ?? res?.data ?? [];
+        const normalized = Array.isArray(list) ? list : [];
+        setProjects(normalized);
+
+        if (mode !== "create" || projectId) return;
+
+        const parts = (pathname || "").split("/").filter(Boolean);
+        const browseIndex = parts.findIndex((p) => p === "browse");
+        const projectSlug = browseIndex >= 0 && parts.length > browseIndex + 2 ? parts[browseIndex + 2] : null;
+        if (!projectSlug) return;
+
+        const matched = normalized.find((p: ProjectOption) => {
+          const slug = p.slug || p.project_slug || "";
+          return String(slug).toLowerCase() === String(projectSlug).toLowerCase();
+        });
+        if (matched?.id !== undefined && matched?.id !== null) {
+          setProjectId(matched.id);
+        }
+      } catch (e) {
+        setProjects([]);
+      }
+    };
+
+    loadProjects();
+
     const loadUsers = async () => {
       try {
         const res = await api.get('/api/users');
@@ -78,7 +113,7 @@ export default function CreateTaskForm({ mode = "create", task, onStored, onUpda
     loadUsers();
 
     if (mode !== "create") return;
-  }, [mode]);
+  }, [mode, pathname, projectId]);
 
   const assignToMe = () => {
     setAssignee(reporterId ?? reporter ?? "");
@@ -87,20 +122,25 @@ export default function CreateTaskForm({ mode = "create", task, onStored, onUpda
   // persist draft to localStorage on changes (debounced simple)
   useEffect(() => {
     try {
-      const draft = { title, description, assignee, status, priority };
+      const draft = { title, description, assignee, projectId, status, priority };
       localStorage.setItem('createTaskDraft', JSON.stringify(draft));
     } catch (e) {}
-  }, [title, description, assignee, status, priority]);
+  }, [title, description, assignee, projectId, status, priority]);
 
   const submit = useCallback(async () => {
     if (!title.trim()) {
       setError('Title is required');
       return;
     }
+    if (mode === "create" && !projectId) {
+      setError('Project is required');
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
       const payload: any = { title, description, status, priority };
+      if (projectId) payload.project_id = projectId;
       if (assignee) {
         payload.assignee = assignee;
         payload.assignee_id = assignee;
@@ -152,6 +192,7 @@ export default function CreateTaskForm({ mode = "create", task, onStored, onUpda
     onStored,
     onUpdated,
     priority,
+    projectId,
     reporterId,
     status,
     task,
@@ -188,6 +229,23 @@ export default function CreateTaskForm({ mode = "create", task, onStored, onUpda
 
       <div className="flex items-baseline-last gap-2 mb-3">
         <div className="flex-1">
+          <label className="text-sm text-(--muted)">Project</label>
+          <select
+            value={String(projectId ?? "")}
+            onChange={(e) => setProjectId(e.target.value || null)}
+            className="w-full px-2 py-2 border rounded mt-1 bg-(--surface) text-foreground border-(--border-color)"
+            disabled={mode === "edit"}
+          >
+            <option value="">-- select project --</option>
+            {projects.map((p) => (
+              <option key={String(p.id)} value={p.id}>{p.name || p.slug || p.project_slug || `Project ${p.id}`}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="flex items-baseline-last gap-2 mb-3">
+        <div className="flex-1">
           <label className="text-sm text-(--muted)">Assignee</label>
           <select
             value={String(assignee ?? "")}
@@ -218,10 +276,12 @@ export default function CreateTaskForm({ mode = "create", task, onStored, onUpda
             onChange={(e) => setStatus(e.target.value)}
             className="w-full px-2 py-2 border rounded mt-1 bg-(--surface) text-foreground border-(--border-color)"
           >
-            <option value="open">Open</option>
-            <option value="in_progress">In Progress</option>
+            <option value="todo">Todo</option>
+            <option value="doing">Doing</option>
             <option value="done">Done</option>
-            <option value="closed">Closed</option>
+            <option value="open">Open (legacy)</option>
+            <option value="in_progress">In Progress (legacy)</option>
+            <option value="closed">Closed (legacy)</option>
           </select>
         </div>
         <div className="flex-1">
