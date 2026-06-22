@@ -59,12 +59,15 @@ export default function CreateTaskModal() {
     <div className="fixed inset-0 z-60 flex items-center justify-center" onClick={() => setShow(false)}>
       <div className="absolute inset-0 bg-black/40" />
 
-      <div className="relative w-[720px] max-w-full max-h-[90vh] shadow-2xl rounded-lg overflow-hidden bg-white dark:bg-surface p-4" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="relative w-180 max-w-full max-h-[90vh] shadow-2xl rounded-lg overflow-hidden p-4 border border-(--border-color) bg-(--surface) text-foreground"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="absolute right-3 top-3 flex items-center gap-2">
           {storedTask?.slug && (
-            <button onClick={() => router.push(`/task/${storedTask.slug}`)} className="px-2 py-1 text-sm rounded hover:bg-gray-100">Expand</button>
+            <button onClick={() => router.push(`/task/${storedTask.slug}`)} className="px-2 py-1 text-sm rounded hover:bg-black/5 dark:hover:bg-white/10">Expand</button>
           )}
-          <button onClick={() => { setShow(false); }} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"><IconX /></button>
+          <button onClick={() => { setShow(false); }} className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10"><IconX /></button>
         </div>
 
         <div className="flex flex-col">
@@ -83,21 +86,21 @@ export default function CreateTaskModal() {
                   <div>
                     <h3 className="text-xl font-semibold truncate">{storedTask.title}</h3>
                     <div className="flex items-center gap-3 mt-2 text-sm">
-                      <div className="text-[color:var(--muted)]">Reporter: <strong className="text-[color:var(--foreground)]">{storedTask.reporter_name || storedTask.reporter || 'Unknown'}</strong></div>
+                      <div className="text-(--muted)">Reporter: <strong className="text-foreground">{storedTask.reporter_name || storedTask.reporter || 'Unknown'}</strong></div>
                       <div className="px-2 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-gray-700">Priority: <strong className="ml-1">{storedTask.priority}</strong></div>
                       <div className="px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700">{storedTask.status}</div>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="flex flex-col items-end text-sm text-[color:var(--muted)]">
+                    <div className="flex flex-col items-end text-sm text-(--muted)">
                       <div className="flex items-center gap-1"><IconClock size={14} /> <span className="text-xs">{storedTask.due_date ?? ''}</span></div>
                     </div>
-                    <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-pink-500 text-white text-sm">{(storedTask.assignee_name || storedTask.assignee || 'U').slice(0,1).toUpperCase()}</div>
+                    <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-linear-to-br from-indigo-500 to-pink-500 text-white text-sm">{(storedTask.assignee_name || storedTask.assignee || 'U').slice(0,1).toUpperCase()}</div>
                   </div>
                 </div>
 
-                <div className="mb-3 text-sm text-[color:var(--foreground)] whitespace-pre-wrap">{storedTask.description}</div>
+                <div className="mb-3 text-sm text-foreground whitespace-pre-wrap">{storedTask.description}</div>
               </div>
             )}
           </div>
@@ -105,20 +108,30 @@ export default function CreateTaskModal() {
           {storedTask && (
             <div className="border-t pt-3" style={{ height: 220 }}>
               <div className="flex items-center gap-2 mb-2">
-                <button onClick={() => setTab('comments')} className={`px-3 py-1 rounded ${tab==='comments'?'bg-gray-100':''}`}>Comments</button>
-                <button onClick={() => setTab('history')} className={`px-3 py-1 rounded ${tab==='history'?'bg-gray-100':''}`}>History</button>
+                <button
+                  onClick={() => setTab('comments')}
+                  className={`px-3 py-1 rounded ${tab==='comments'?'bg-black/5 dark:bg-white/10':'hover:bg-black/5 dark:hover:bg-white/10'}`}
+                >
+                  Comments
+                </button>
+                <button
+                  onClick={() => setTab('history')}
+                  className={`px-3 py-1 rounded ${tab==='history'?'bg-black/5 dark:bg-white/10':'hover:bg-black/5 dark:hover:bg-white/10'}`}
+                >
+                  History
+                </button>
               </div>
 
-              <div className="overflow-auto h-[calc(100%_-_36px)]">
+              <div className="overflow-auto h-[calc(100%-36px)]">
                 {tab === 'comments' && (
                   <div>
                     {comments.length === 0 ? (
-                      <div className="text-sm text-gray-500">No comments yet.</div>
+                      <div className="text-sm text-(--muted)">No comments yet.</div>
                     ) : (
                       comments.map((c: any, i: number) => (
                         <div key={i} className="mb-2 border-b pb-2">
                           <div className="text-sm font-medium">{c.user_name || c.user || 'Unknown'}</div>
-                          <div className="text-sm text-[color:var(--muted)]">{c.body}</div>
+                          <div className="text-sm text-(--muted)">{c.body}</div>
                         </div>
                       ))
                     )}
@@ -128,12 +141,12 @@ export default function CreateTaskModal() {
                 {tab === 'history' && (
                   <div>
                     {history.length === 0 ? (
-                      <div className="text-sm text-gray-500">No activity yet.</div>
+                      <div className="text-sm text-(--muted)">No activity yet.</div>
                     ) : (
                       history.map((h: any, i: number) => (
                         <div key={i} className="mb-2 border-b pb-2">
                           <div className="text-sm font-medium">{h.description || h.action}</div>
-                          <div className="text-sm text-[color:var(--muted)]">{h.created_at}</div>
+                          <div className="text-sm text-(--muted)">{h.created_at}</div>
                         </div>
                       ))
                     )}
@@ -146,12 +159,12 @@ export default function CreateTaskModal() {
           {/* Footer: compact controls always visible to avoid large whitespace */}
           <div className="border-t pt-3 pb-2 mt-2 flex items-center justify-end gap-2">
             <div className="flex items-center gap-2">
-              <button onClick={() => setShow(false)} className="px-3 py-1 rounded text-sm hover:bg-gray-100">Cancel</button>
+              <button onClick={() => setShow(false)} className="px-3 py-1 rounded text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancel</button>
               {!storedTask && (
                 <button onClick={() => { if (formSubmitFn) formSubmitFn(); }} className="px-3 py-1 rounded text-sm bg-indigo-600 text-white">Create Task</button>
               )}
               {storedTask && (
-                <button onClick={() => setShow(false)} className="px-3 py-1 rounded text-sm bg-gray-100">Done</button>
+                <button onClick={() => setShow(false)} className="px-3 py-1 rounded text-sm bg-black/5 dark:bg-white/10">Done</button>
               )}
             </div>
           </div>

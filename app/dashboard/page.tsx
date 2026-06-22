@@ -117,9 +117,23 @@ export default function DashboardPage() {
   const inProgressCount = summary?.in_progress ?? 0;
   const completedCount = summary?.completed ?? 0;
 
-  const priorityTasks = groups?.top_priority_tasks ?? [];
-  const dueTasks = groups?.due_tasks ?? [];
-  const yourTasks = groups?.your_tasks ?? [];
+  const priorityTasks = Array.isArray(groups?.top_priority_tasks) ? groups.top_priority_tasks : [];
+  const dueTasks = Array.isArray(groups?.due_tasks) ? groups.due_tasks : [];
+  const yourTasks = Array.isArray(groups?.your_tasks) ? groups.your_tasks : [];
+
+  useEffect(() => {
+    if (!groups) return;
+
+    if (!Array.isArray(groups.top_priority_tasks)) {
+      console.warn("[dashboard] expected task_groups.top_priority_tasks to be an array", groups.top_priority_tasks);
+    }
+    if (!Array.isArray(groups.due_tasks)) {
+      console.warn("[dashboard] expected task_groups.due_tasks to be an array", groups.due_tasks);
+    }
+    if (!Array.isArray(groups.your_tasks)) {
+      console.warn("[dashboard] expected task_groups.your_tasks to be an array", groups.your_tasks);
+    }
+  }, [groups]);
 
   const chartLabels = activity?.labels?.length ? activity.labels : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const activityUsers = Array.isArray(activity?.users) ? activity.users : [];
@@ -133,8 +147,9 @@ export default function DashboardPage() {
     [activityUsers]
   );
 
-  function toTaskListItems(tasks: DashboardTask[]) {
-    return tasks.map((t) => ({
+  function toTaskListItems(tasks: DashboardTask[] | null | undefined) {
+    const safeTasks = Array.isArray(tasks) ? tasks : [];
+    return safeTasks.map((t) => ({
       ...t,
       subtitle: t.subtitle || t.project?.name || (t.priority ? `Priority: ${t.priority}` : "Task"),
     }));

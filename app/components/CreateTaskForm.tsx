@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import api from "@/lib/api";
 import useAuthStore from "@/lib/authStore";
 
@@ -92,7 +92,7 @@ export default function CreateTaskForm({ mode = "create", task, onStored, onUpda
     } catch (e) {}
   }, [title, description, assignee, status, priority]);
 
-  const submit = async () => {
+  const submit = useCallback(async () => {
     if (!title.trim()) {
       setError('Title is required');
       return;
@@ -145,7 +145,18 @@ export default function CreateTaskForm({ mode = "create", task, onStored, onUpda
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    assignee,
+    description,
+    mode,
+    onStored,
+    onUpdated,
+    priority,
+    reporterId,
+    status,
+    task,
+    title,
+  ]);
 
   // expose submit to parent so modal footer can trigger it (register once)
   useEffect(() => {
@@ -153,23 +164,36 @@ export default function CreateTaskForm({ mode = "create", task, onStored, onUpda
     try {
       onRegisterSubmit(submit);
     } catch (e) {}
-    // only run when onRegisterSubmit identity changes
-  }, [onRegisterSubmit]);
+  }, [onRegisterSubmit, submit]);
 
   return (
     <div>
       {error && <div className="text-sm text-red-600 mb-2">{error}</div>}
 
       <label className="text-sm text-(--muted)">Title</label>
-      <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full px-3 py-2 border rounded mt-1 mb-3" />
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        className="w-full px-3 py-2 border rounded mt-1 mb-3 bg-(--surface) text-foreground border-(--border-color) placeholder:text-(--muted)"
+        placeholder="Task title"
+      />
 
       <label className="text-sm text-(--muted)">Description</label>
-      <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="w-full px-3 py-2 border rounded mt-1 mb-3" />
+      <textarea
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        className="w-full px-3 py-2 border rounded mt-1 mb-3 bg-(--surface) text-foreground border-(--border-color) placeholder:text-(--muted)"
+        placeholder="Add context for this task"
+      />
 
       <div className="flex items-baseline-last gap-2 mb-3">
         <div className="flex-1">
           <label className="text-sm text-(--muted)">Assignee</label>
-          <select value={String(assignee ?? "")} onChange={(e) => setAssignee(e.target.value || null)} className="w-full px-2 py-2 border rounded mt-1">
+          <select
+            value={String(assignee ?? "")}
+            onChange={(e) => setAssignee(e.target.value || null)}
+            className="w-full px-2 py-2 border rounded mt-1 bg-(--surface) text-foreground border-(--border-color)"
+          >
             <option value="">-- unassigned --</option>
             {users.map(u => (
               <option key={String(u.id)} value={u.id}>{u.name || u.username || u.email}</option>
@@ -177,14 +201,23 @@ export default function CreateTaskForm({ mode = "create", task, onStored, onUpda
           </select>
         </div>
         <div>
-          <button onClick={assignToMe} className="px-3 py-2 bg-gray-100 rounded">Assign to me</button>
+          <button
+            onClick={assignToMe}
+            className="px-3 py-2 rounded border border-(--border-color) bg-(--surface) text-foreground hover:brightness-95 dark:hover:brightness-110"
+          >
+            Assign to me
+          </button>
         </div>
       </div>
 
       <div className="flex gap-2 mb-3">
         <div className="flex-1">
           <label className="text-sm text-(--muted)">Status</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full px-2 py-2 border rounded mt-1">
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="w-full px-2 py-2 border rounded mt-1 bg-(--surface) text-foreground border-(--border-color)"
+          >
             <option value="open">Open</option>
             <option value="in_progress">In Progress</option>
             <option value="done">Done</option>
@@ -193,7 +226,11 @@ export default function CreateTaskForm({ mode = "create", task, onStored, onUpda
         </div>
         <div className="flex-1">
           <label className="text-sm text-(--muted)">Priority</label>
-          <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full px-2 py-2 border rounded mt-1">
+          <select
+            value={priority}
+            onChange={(e) => setPriority(e.target.value)}
+            className="w-full px-2 py-2 border rounded mt-1 bg-(--surface) text-foreground border-(--border-color)"
+          >
             <option value="low">Low</option>
             <option value="normal">Normal</option>
             <option value="high">High</option>
@@ -204,7 +241,7 @@ export default function CreateTaskForm({ mode = "create", task, onStored, onUpda
 
       {!hideSubmit && (
         <div className="flex justify-end">
-          <button onClick={submit} disabled={loading} className="px-4 py-2 bg-indigo-600 text-white rounded">
+          <button onClick={submit} disabled={loading} className="px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-70 disabled:cursor-not-allowed">
             {loading ? (mode === "edit" ? 'Saving...' : 'Creating...') : (mode === "edit" ? 'Save Changes' : 'Create Task')}
           </button>
         </div>
