@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import api from "@/lib/api";
 import useAuthStore from "@/lib/authStore";
 import { usePathname } from "next/navigation";
@@ -31,6 +31,7 @@ export default function CreateTaskForm({ mode = "create", task, onStored, onUpda
   const [priority, setPriority] = useState("normal");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const submitRef = useRef<() => Promise<void>>(async () => {});
   const getToken = useAuthStore((s) => s.getToken);
   const token = typeof window !== "undefined" ? getToken() : null;
   let reporter = "";
@@ -199,13 +200,17 @@ export default function CreateTaskForm({ mode = "create", task, onStored, onUpda
     title,
   ]);
 
+  useEffect(() => {
+    submitRef.current = submit;
+  }, [submit]);
+
   // expose submit to parent so modal footer can trigger it (register once)
   useEffect(() => {
     if (!onRegisterSubmit) return;
     try {
-      onRegisterSubmit(submit);
+      onRegisterSubmit(() => submitRef.current());
     } catch (e) {}
-  }, [onRegisterSubmit, submit]);
+  }, [onRegisterSubmit]);
 
   return (
     <div>
