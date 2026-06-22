@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import DashboardCard from "../components/DashboardCard";
 const StackedBarChart = dynamic(() => import("../components/StackedBarChart"), { ssr: false });
@@ -7,34 +8,141 @@ const RadialChartWithTabs = dynamic(() => import("../components/RadialChartWithT
 import TaskList from "../components/TaskList";
 import { IconChecklist, IconClock, IconPlayerPlay, IconCheck, IconFlag, IconCalendar, IconUserCheck } from "@tabler/icons-react";
 import AppShell from "../components/AppShell";
+import api from "../../lib/api";
 
-const mockUsers = [
-  { name: "Alice", color: "var(--accent-red)", values: [5, 3, 4, 2, 6, 3, 4] },
-  { name: "Bob", color: "var(--accent-yellow)", values: [2, 4, 1, 3, 2, 4, 1] },
-  { name: "Carol", color: "var(--accent-green)", values: [1, 2, 3, 2, 1, 1, 2] },
+type DashboardTask = {
+  id: string | number;
+  slug: string;
+  title: string;
+  subtitle?: string;
+  status: string;
+  priority?: string;
+  project?: {
+    id: string | number;
+    name: string;
+    slug: string;
+  };
+};
+
+type DashboardResponse = {
+  data: {
+    summary?: {
+      total_tasks?: number;
+      todo?: number;
+      in_progress?: number;
+      completed?: number;
+    };
+    task_groups?: {
+      top_priority_tasks?: DashboardTask[];
+      due_tasks?: DashboardTask[];
+      your_tasks?: DashboardTask[];
+    };
+    activity?: {
+      labels?: string[];
+      users?: Array<{
+        user_id: string | number;
+        name: string;
+        values: number[];
+      }>;
+      total_completed_this_week?: number;
+    };
+    overview?: {
+      total_owned?: number;
+      total_all?: number;
+      by_status?: {
+        todo?: number;
+        in_progress?: number;
+        completed?: number;
+        other?: number;
+      };
+    };
+  };
+};
+
+const ACTIVITY_COLORS = [
+  "var(--accent-red)",
+  "var(--accent-yellow)",
+  "var(--accent-green)",
+  "var(--accent-blue)",
+  "var(--accent-indigo)",
+  "#64748b",
+  "#f97316",
 ];
 
 export default function DashboardPage() {
-  const totals = mockUsers.reduce((acc, u) => acc + u.values.reduce((a, b) => a + b, 0), 0);
+  const [dashboard, setDashboard] = useState<DashboardResponse["data"] | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // mock tasks
-  const priorityTasks = Array.from({ length: 6 }).map((_, i) => ({ id: i + 1, title: `Priority task ${i + 1}`, subtitle: "High priority", status: "urgent" }));
-  const dueTasks = Array.from({ length: 4 }).map((_, i) => ({ id: i + 10, title: `Due task ${i + 1}`, subtitle: "Due soon", status: "due" }));
-  const yourTasks = Array.from({ length: 0 }).map((_, i) => ({ id: i + 20, title: `Your task ${i + 1}`, subtitle: "Assigned to you", status: "todo" }));
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadDashboard() {
+      setLoading(true);
+
+      try {
+        const response = await api.get<DashboardResponse>("/api/dashboard", {
+          params: {
+            priority_limit: 6,
+            due_limit: 4,
+            your_limit: 10,
+          },
+        });
+
+        if (!mounted) return;
+        setDashboard(response.data?.data ?? null);
+      } catch {
+        if (!mounted) return;
+        setDashboard(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    loadDashboard();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const summary = dashboard?.summary;
+  const overview = dashboard?.overview;
+  const activity = dashboard?.activity;
+  const groups = dashboard?.task_groups;
+
+  const totals = summary?.total_tasks ?? 0;
+  const todoCount = summary?.todo ?? 0;
+  const inProgressCount = summary?.in_progress ?? 0;
+  const completedCount = summary?.completed ?? 0;
+
+  const priorityTasks = groups?.top_priority_tasks ?? [];
+  const dueTasks = groups?.due_tasks ?? [];
+  const yourTasks = groups?.your_tasks ?? [];
+
+  const chartLabels = activity?.labels?.length ? activity.labels : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const chartUsers = useMemo(
+    () =>
+      (activity?.users ?? []).map((u, index) => ({
+        name: u.name,
+        color: ACTIVITY_COLORS[index % ACTIVITY_COLORS.length],
+        values: Array.isArray(u.values) ? u.values : [],
+      })),
+    [activity?.users]
+  );
 
   return (
     <AppShell>
       <div className="space-y-6 p-6">
         <div>
           <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <p className="text-sm text-gray-500">Overview and widgets</p>
+          <p className="text-sm text-gray-500">{loading ? "Loading dashboard data..." : "Overview and widgets"}</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <DashboardCard title="Total tasks" value={totals} icon={<IconChecklist />} iconBg="icon-blue" iconColor="var(--accent-blue)" />
-          <DashboardCard title="Todo" value={12} icon={<IconClock />} iconBg="icon-yellow" iconColor="var(--accent-yellow)" />
-          <DashboardCard title="In progress" value={8} icon={<IconPlayerPlay />} iconBg="icon-indigo" iconColor="var(--accent-indigo)" />
-          <DashboardCard title="Completed" value={34} icon={<IconCheck />} iconBg="icon-green" iconColor="var(--accent-green)" />
+          <DashboardCard title="Todo" value={todoCount} icon={<IconClock />} iconBg="icon-yellow" iconColor="var(--accent-yellow)" />
+          <DashboardCard title="In progress" value={inProgressCount} icon={<IconPlayerPlay />} iconBg="icon-indigo" iconColor="var(--accent-indigo)" />
+          <DashboardCard title="Completed" value={completedCount} icon={<IconCheck />} iconBg="icon-green" iconColor="var(--accent-green)" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -66,7 +174,7 @@ export default function DashboardPage() {
                 <div className="text-lg font-semibold">Completed per day</div>
               </div>
               <div className="flex items-center gap-3">
-                {mockUsers.map((u) => (
+                {chartUsers.map((u) => (
                   <div key={u.name} className="flex items-center gap-2 text-sm" style={{ color: u.color }}>
                     <span style={{ width: 12, height: 8, background: u.color, display: 'inline-block', borderRadius: 3 }} />
                     <span style={{ color: 'var(--muted)' }}>{u.name}</span>
@@ -74,8 +182,8 @@ export default function DashboardPage() {
                 ))}
               </div>
             </div>
-            <div className="h-[220px]">
-              <StackedBarChart users={mockUsers} labels={["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]} width={560} height={220} />
+            <div className="h-55">
+              <StackedBarChart users={chartUsers} labels={chartLabels} width={560} height={220} />
             </div>
           </div>
 
@@ -83,7 +191,7 @@ export default function DashboardPage() {
             <div className="surface-muted rounded-lg p-4 h-full">
               <div className="text-sm" style={{ color: "var(--muted)" }}>Overview</div>
               <div className="text-lg font-semibold mb-2">Status distribution</div>
-              <div className="h-[200px]"><RadialChartWithTabs totalOwned={11} totalAll={totals} /></div>
+              <div className="h-50"><RadialChartWithTabs totalOwned={overview?.total_owned ?? 0} totalAll={overview?.total_all ?? totals} /></div>
             </div>
           </div>
         </div>
