@@ -1,3 +1,5 @@
+![img](ahatask.png)
+
 Core Requirements
 
 ## Data Model
